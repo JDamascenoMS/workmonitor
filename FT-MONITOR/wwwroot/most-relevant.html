@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Most Relevant Tickets</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+        }
+        header {
+            background: #d83b01;
+            color: #fff;
+            padding: 20px 40px;
+        }
+        header h1 { font-size: 1.5rem; font-weight: 600; }
+        header .nav-links { margin-top: 4px; }
+        header .nav-link {
+            color: #ffe1c8; font-size: 13px; text-decoration: none; margin-right: 20px;
+        }
+        header .nav-link:hover { color: #fff; text-decoration: underline; }
+
+        .controls {
+            display: flex; gap: 12px; align-items: center;
+            padding: 20px 40px;
+            background: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            flex-wrap: wrap;
+        }
+        .controls label { font-weight: 600; }
+        .controls select {
+            padding: 8px 16px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px;
+        }
+        .controls button {
+            padding: 8px 16px; font-size: 14px; border: none; border-radius: 4px;
+            background: #d83b01; color: #fff; cursor: pointer; font-weight: 600;
+        }
+        .controls button:hover { background: #b8330a; }
+
+        .loading-bar {
+            display: none;
+            height: 3px;
+            background: linear-gradient(90deg,#d83b01,#ff8c42,#d83b01);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .content { padding: 24px 40px; }
+
+        .message {
+            padding: 40px 20px; color: #666; font-style: italic; text-align: center;
+        }
+        .message.error { color: #d13438; font-style: normal; font-weight: 600; }
+
+        .ranked-list {
+            display: flex; flex-direction: column; gap: 16px;
+        }
+        .ticket-card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px 24px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            display: grid;
+            grid-template-columns: 60px 1fr auto;
+            gap: 18px;
+            align-items: start;
+            border-left: 5px solid #d83b01;
+        }
+        .ticket-card .rank {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: #d83b01;
+            text-align: center;
+            line-height: 1;
+        }
+        .ticket-card .body h3 {
+            font-size: 1.05rem;
+            color: #323130;
+            margin-bottom: 6px;
+        }
+        .ticket-card .body h3 a {
+            color: #0078d4; text-decoration: none;
+        }
+        .ticket-card .body h3 a:hover { text-decoration: underline; }
+        .ticket-card .meta {
+            display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;
+        }
+        .badge {
+            font-size: 12px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+            background: #f3f2f1;
+            color: #605e5c;
+        }
+        .badge.theme    { background: #e8f5e9; color: #107c10; }
+        .badge.priority { background: #fde7e9; color: #d13438; }
+        .badge.similar  { background: #fff4ce; color: #ca5010; }
+        .badge.state    { background: #e3f2fd; color: #0078d4; }
+
+        .ticket-card .reasoning {
+            margin-top: 10px;
+            font-size: .88rem;
+            color: #605e5c;
+            line-height: 1.5;
+            font-style: italic;
+        }
+
+        .scorebox {
+            text-align: center;
+            min-width: 90px;
+        }
+        .scorebox .score-value {
+            font-size: 1.8rem; font-weight: 700; color: #d83b01;
+        }
+        .scorebox .score-label {
+            font-size: .72rem; color: #605e5c; text-transform: uppercase; letter-spacing: .5px;
+        }
+        .scorebar {
+            margin-top: 6px;
+            width: 90px; height: 6px;
+            background: #f3f2f1; border-radius: 3px; overflow: hidden;
+        }
+        .scorebar-fill {
+            height: 100%;
+            background: linear-gradient(90deg,#ff8c42,#d83b01);
+            transition: width .4s ease;
+        }
+
+        /* Table view */
+        .table-section {
+            margin-top: 32px;
+        }
+        .table-section h2 {
+            font-size: 1.1rem;
+            color: #323130;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+        .table-wrap {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        table.relevant-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table.relevant-table th {
+            background: #f5f5f5;
+            color: #333;
+            padding: 10px 14px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        table.relevant-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+            vertical-align: top;
+        }
+        table.relevant-table tr:last-child td { border-bottom: none; }
+        table.relevant-table tr:hover td { background: #fff7f2; }
+        table.relevant-table .wi-link {
+            color: #d83b01; text-decoration: none; font-weight: 600;
+        }
+        table.relevant-table .wi-link:hover { text-decoration: underline; }
+        table.relevant-table .priority {
+            font-weight: 700;
+            text-align: center;
+            border-radius: 4px;
+            padding: 2px 8px;
+            display: inline-block;
+            min-width: 24px;
+        }
+        table.relevant-table .p1 { background: #fde7e9; color: #d13438; }
+        table.relevant-table .p2 { background: #fff4ce; color: #ca5010; }
+        table.relevant-table .p3 { background: #edebe9; color: #605e5c; }
+        table.relevant-table .p4 { background: #f3f2f1; color: #8a8886; }
+        table.relevant-table .state-badge {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        table.relevant-table .state-active   { background: #e8f5e9; color: #107c10; }
+        table.relevant-table .state-new      { background: #e3f2fd; color: #0078d4; }
+        table.relevant-table .state-resolved { background: #fff3e0; color: #ca5010; }
+        table.relevant-table .state-default  { background: #f3f2f1; color: #605e5c; }
+        table.relevant-table .area-path {
+            font-size: 12px; color: #605e5c; font-family: Consolas, monospace;
+        }
+    </style>
+    <script src="/js/msal-auth.js"></script>
+</head>
+<body>
+    <header>
+        <h1>⭐ Most Relevant Tickets</h1>
+        <div class="nav-links">
+            <a href="/" class="nav-link">← Home</a>
+            <a href="/feedback-insights.html" class="nav-link">Feedback Insights</a>
+            <a href="/feedback-dashboard.html" class="nav-link">Themes Analysis</a>
+            <span id="userInfo" style="font-size:12px;color:#ffe1c8;float:right;"></span>
+        </div>
+    </header>
+
+    <div class="controls">
+        <label for="projectArea">Area:</label>
+        <select id="projectArea"><option value="">Loading...</option></select>
+        <button onclick="loadRanked()">⭐ Find Most Relevant</button>
+    </div>
+
+    <div class="loading-bar" id="loadingBar"></div>
+
+    <div class="content">
+        <div id="messageArea" class="message">
+            Select an area and click <strong>Find Most Relevant</strong> to see the top 5 tickets ranked by
+            score, theme weight, and similar tickets in the last month.
+        </div>
+        <div id="rankedList" class="ranked-list"></div>
+
+        <div id="tableSection" class="table-section" style="display:none;">
+            <h2>📋 Tabular view</h2>
+            <div class="table-wrap">
+                <table class="relevant-table">
+                    <thead>
+                        <tr>
+                            <th style="width:40px;">#</th>
+                            <th>State</th>
+                            <th>Assignee</th>
+                            <th>Priority</th>
+                            <th>Ticket</th>
+                            <th>Title</th>
+                            <th>Area Path</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let itemsLookup = {};
+
+        (async function loadAreaPaths() {
+            const sel = document.getElementById('projectArea');
+            try {
+                const r = await authFetch('/api/parameters/area-paths');
+                if (!r.ok) throw new Error('Failed to load area paths');
+                const paths = await r.json();
+                sel.innerHTML = '';
+                paths.forEach(p => {
+                    const o = document.createElement('option');
+                    o.value = p.name; o.textContent = p.name;
+                    sel.appendChild(o);
+                });
+            } catch (err) {
+                sel.innerHTML = '<option value="">Error loading</option>';
+                console.error(err);
+            }
+        })();
+
+        async function loadRanked() {
+            const area = document.getElementById('projectArea').value;
+            const list = document.getElementById('rankedList');
+            const msg  = document.getElementById('messageArea');
+            const bar  = document.getElementById('loadingBar');
+
+            list.innerHTML = '';
+            document.getElementById('tableSection').style.display = 'none';
+            msg.className = 'message';
+            msg.innerHTML = '⏳ Fetching feedback, classifying themes, and ranking tickets with AI…';
+            msg.style.display = 'block';
+            bar.style.display = 'block';
+
+            try {
+                const res = await authFetch(`/api/most-relevant-tickets?projectArea=${encodeURIComponent(area)}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+
+                itemsLookup = {};
+                (data.items || []).forEach(i => itemsLookup[i.id] = i);
+
+                const ranked = data.ranked || [];
+                if (!ranked.length) {
+                    msg.textContent = 'No tickets to rank for this area.';
+                    bar.style.display = 'none';
+                    return;
+                }
+
+                msg.style.display = 'none';
+                bar.style.display = 'none';
+                renderRanked(ranked);
+                renderTable(ranked);
+            } catch (err) {
+                bar.style.display = 'none';
+                msg.className = 'message error';
+                msg.textContent = '❌ ' + err.message;
+            }
+        }
+
+        function renderRanked(ranked) {
+            const list = document.getElementById('rankedList');
+            list.innerHTML = ranked.map((t, i) => {
+                const item = itemsLookup[t.id] || {};
+                const title  = t.title || item.title || `Work Item #${t.id}`;
+                const score  = clamp(Number(t.score) || 0, 0, 100);
+                const theme  = t.themeName || '';
+                const tCount = Number(t.themeCount) || 0;
+                const sim    = Number(t.similarLastMonth) || 0;
+                const reason = t.reasoning || '';
+                const state  = item.state || '';
+                const prio   = item.priority || 0;
+
+                return `
+                    <div class="ticket-card">
+                        <div class="rank">#${i + 1}</div>
+                        <div class="body">
+                            <h3><a href="https://dev.azure.com/devdiv/devdiv/_workitems/edit/${t.id}" target="_blank">
+                                ${escapeHtml(title)} <span style="color:#605e5c;font-weight:400;">#${t.id}</span>
+                            </a></h3>
+                            <div class="meta">
+                                ${prio  ? `<span class="badge priority">Priority ${prio}</span>` : ''}
+                                ${state ? `<span class="badge state">${escapeHtml(state)}</span>` : ''}
+                                ${theme ? `<span class="badge theme">🧩 ${escapeHtml(theme)}${tCount ? ' (' + tCount + ')' : ''}</span>` : ''}
+                                <span class="badge similar">🕒 ${sim} similar in last 30d</span>
+                            </div>
+                            ${reason ? `<div class="reasoning">${escapeHtml(reason)}</div>` : ''}
+                        </div>
+                        <div class="scorebox">
+                            <div class="score-value">${score}</div>
+                            <div class="score-label">Relevance</div>
+                            <div class="scorebar"><div class="scorebar-fill" style="width:${score}%"></div></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+
+        function renderTable(ranked) {
+            const section = document.getElementById('tableSection');
+            const body = document.getElementById('tableBody');
+            body.innerHTML = ranked.map((t, i) => {
+                const item = itemsLookup[t.id] || {};
+                const title    = t.title || item.title || `Work Item #${t.id}`;
+                const state    = item.state || '';
+                const assignee = item.assignedTo || 'Unassigned';
+                const prio     = item.priority || 0;
+                const area     = item.areaPath || '';
+                return `
+                    <tr>
+                        <td>${i + 1}</td>
+                        <td><span class="state-badge ${getStateClass(state)}">${escapeHtml(state) || '—'}</span></td>
+                        <td>${escapeHtml(assignee)}</td>
+                        <td>${prio ? `<span class="priority p${prio}">${prio}</span>` : '—'}</td>
+                        <td><a class="wi-link" href="https://dev.azure.com/devdiv/devdiv/_workitems/edit/${t.id}" target="_blank">#${t.id}</a></td>
+                        <td>${escapeHtml(title)}</td>
+                        <td><span class="area-path">${escapeHtml(area) || '—'}</span></td>
+                    </tr>
+                `;
+            }).join('');
+            section.style.display = 'block';
+        }
+
+        function getStateClass(state) {
+            if (!state) return 'state-default';
+            const s = state.toLowerCase();
+            if (s === 'active') return 'state-active';
+            if (s === 'new') return 'state-new';
+            if (s === 'resolved') return 'state-resolved';
+            return 'state-default';
+        }
+
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            const div = document.createElement('div');
+            div.textContent = String(text);
+            return div.innerHTML;
+        }
+
+        renderUserInfo('userInfo', { linkColor: '#ffe1c8' });
+    </script>
+</body>
+</html>

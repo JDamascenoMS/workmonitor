@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent — FT Monitor</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            color: #24292f;
+            display: flex; flex-direction: column;
+        }
+        header {
+            background: #6f42c1; color: #fff;
+            padding: 16px 32px; display: flex;
+            justify-content: space-between; align-items: center; gap: 12px;
+            flex-wrap: wrap;
+        }
+        header h1 { font-size: 1.4rem; font-weight: 600; }
+        header a { color: #ffe1c8; text-decoration: none; font-size: 0.9rem; }
+        header a:hover { text-decoration: underline; }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 280px 320px 1fr;
+            gap: 0;
+            flex: 1; min-height: 0;
+        }
+        aside {
+            background: #fff; border-right: 1px solid #e0e0e0;
+            display: flex; flex-direction: column; padding: 16px;
+            overflow-y: auto;
+        }
+        aside h2 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+
+        .ws-item {
+            border: 1px solid #e0e0e0; border-radius: 6px;
+            padding: 8px 10px; margin-bottom: 6px;
+            background: #fafafa; font-size: 0.85rem;
+            position: relative;
+        }
+        .ws-item .head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+        .ws-item .id { font-weight: 600; color: #6f42c1; }
+        .ws-item .title { display: block; margin-top: 4px; color: #24292f; }
+        .ws-item .meta { display: block; font-size: 0.75rem; color: #57606a; margin-top: 4px; }
+        .ws-item .remove {
+            border: none; background: none; color: #cf222e; cursor: pointer;
+            font-size: 0.95rem; padding: 0 2px;
+        }
+        .ws-empty { color: #8c959f; font-size: 0.85rem; padding: 8px 0; }
+        .ws-toolbar {
+            display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;
+        }
+        .ws-toolbar button {
+            font-size: 0.78rem; padding: 4px 8px;
+            border: 1px solid #d0d7de; background: #f6f8fa; border-radius: 4px;
+            cursor: pointer;
+        }
+        .ws-toolbar button:hover { background: #ede1ff; border-color: #6f42c1; }
+        .ws-tag {
+            display: inline-block; padding: 1px 8px; border-radius: 999px;
+            font-size: 11px; font-weight: 600; background: #ede1ff; color: #6f42c1;
+        }
+        .skill {
+            border: 1px solid #e0e0e0; border-radius: 6px;
+            padding: 8px 10px; margin-bottom: 8px; cursor: pointer;
+            background: #fafafa;
+        }
+        .skill:hover { background: #f0e6ff; border-color: #6f42c1; }
+        .skill.active { background: #ede1ff; border-color: #6f42c1; box-shadow: 0 0 0 1px #6f42c1; }
+        .skill .name { font-weight: 600; font-size: 0.92rem; color: #6f42c1; }
+        .skill .desc { font-size: 0.82rem; color: #555; margin-top: 2px; }
+        .skill .tools { font-size: 0.75rem; color: #888; margin-top: 4px; }
+        .skill .delete {
+            float: right; color: #cf222e; cursor: pointer; font-size: 0.85rem;
+            border: none; background: none;
+        }
+
+        .new-skill {
+            margin-top: 12px; border-top: 1px dashed #e0e0e0; padding-top: 12px;
+        }
+        .new-skill summary { cursor: pointer; font-weight: 600; color: #6f42c1; font-size: 0.9rem; }
+        .new-skill input, .new-skill textarea, .new-skill select {
+            width: 100%; padding: 6px 8px; margin-top: 6px;
+            border: 1px solid #d0d7de; border-radius: 4px; font-size: 0.85rem;
+            font-family: inherit;
+        }
+        .new-skill textarea { min-height: 60px; resize: vertical; }
+        .new-skill button {
+            margin-top: 8px; width: 100%; padding: 8px;
+            background: #6f42c1; color: #fff; border: none; border-radius: 4px;
+            cursor: pointer; font-weight: 600;
+        }
+        .new-skill button:hover { background: #5a32a3; }
+
+        main {
+            display: flex; flex-direction: column;
+            min-height: 0; overflow: hidden;
+        }
+        .transcript {
+            flex: 1; overflow-y: auto; padding: 24px 32px;
+        }
+        .turn {
+            margin-bottom: 16px;
+            padding: 12px 16px; border-radius: 8px;
+            font-size: 0.92rem; line-height: 1.5;
+        }
+        .turn.user { background: #e1ecf4; border: 1px solid #bcd5ed; }
+        .turn.assistant { background: #fff; border: 1px solid #e0e0e0; white-space: pre-wrap; }
+        .turn.tool { background: #fff8e1; border: 1px solid #f0c948; font-family: 'Consolas', monospace; font-size: 0.82rem; }
+        .turn .role {
+            font-weight: 600; color: #6f42c1;
+            font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.4px;
+            margin-bottom: 4px;
+        }
+        .turn.tool details summary {
+            cursor: pointer; font-family: 'Segoe UI', sans-serif; font-weight: 600;
+            color: #57606a; font-size: 0.85rem;
+        }
+        .turn.tool pre {
+            margin-top: 6px; max-height: 240px; overflow: auto;
+            background: #fff; padding: 8px; border-radius: 4px; border: 1px solid #f0c948;
+        }
+
+        .composer {
+            display: flex; gap: 8px; padding: 16px 32px;
+            border-top: 1px solid #e0e0e0; background: #fff;
+            align-items: flex-end;
+        }
+        .composer textarea {
+            flex: 1; padding: 10px; font-size: 0.95rem;
+            border: 1px solid #d0d7de; border-radius: 6px;
+            min-height: 56px; resize: vertical; font-family: inherit;
+        }
+        .composer .actions {
+            display: flex; flex-direction: column; gap: 6px; align-items: flex-end;
+        }
+        .composer label { font-size: 0.82rem; color: #57606a; user-select: none; }
+        .composer button {
+            padding: 10px 20px; background: #6f42c1; color: #fff;
+            border: none; border-radius: 6px; font-weight: 600; cursor: pointer;
+        }
+        .composer button:hover:not(:disabled) { background: #5a32a3; }
+        .composer button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .audit {
+            margin: 12px 32px; padding: 8px 12px;
+            background: #fdf2e9; border: 1px solid #f0c948; border-radius: 6px;
+            font-size: 0.82rem; color: #6c4500;
+        }
+        .audit ul { margin: 4px 0 0 16px; }
+
+        .empty {
+            text-align: center; color: #8c959f; padding: 60px 20px;
+        }
+        .empty h2 { font-weight: 400; margin-bottom: 8px; color: #24292f; }
+    </style>
+    <script src="/js/msal-auth.js"></script>
+    <script src="/js/agent-working-set.js"></script>
+</head>
+<body>
+    <header>
+        <h1>🤖 Agent</h1>
+        <div style="display:flex;align-items:center;gap:16px;">
+            <div id="userInfo" style="font-size:0.9rem;"></div>
+            <a href="/index.html">← Back to home</a>
+        </div>
+    </header>
+
+    <div class="layout">
+        <aside>
+            <h2>Working set <span id="wsCountTag" class="ws-tag" style="display:none;"></span></h2>
+            <div class="ws-toolbar">
+                <button id="wsClear" title="Remove all items">Clear all</button>
+                <button id="wsRefresh" title="Reload from storage">↻</button>
+            </div>
+            <div id="wsList"></div>
+            <p style="margin-top:12px;font-size:0.78rem;color:#666;">
+                Items added from the
+                <a href="/top-bugs.html">Bugs</a> or
+                <a href="/top-feedback.html">Feedback</a> pages via the
+                <em>"Send selected to Agent"</em> button.
+            </p>
+        </aside>
+
+        <aside>
+            <h2>Skills</h2>
+            <div id="skillList"></div>
+
+            <details class="new-skill">
+                <summary>+ New skill</summary>
+                <input id="skName" placeholder="Skill name (e.g. 'Triage Bug')" />
+                <input id="skDesc" placeholder="Short description" />
+                <textarea id="skPrompt" placeholder="System prompt addendum — extra instructions for the agent when this skill is selected."></textarea>
+                <select id="skTools" multiple size="6"></select>
+                <small style="color:#666;font-size:0.75rem;">Hold Ctrl/Cmd to select multiple. Empty = all tools allowed.</small>
+                <button id="skCreate">Create skill</button>
+                <div id="skCreateMsg" style="font-size:0.8rem;margin-top:6px;color:#cf222e;"></div>
+            </details>
+
+            <div style="margin-top:20px;padding-top:12px;border-top:1px dashed #e0e0e0;">
+                <h2>Available tools</h2>
+                <div id="toolList" style="font-size:0.8rem;color:#555;"></div>
+            </div>
+        </aside>
+
+        <main>
+            <div class="transcript" id="transcript">
+                <div class="empty">
+                    <h2>Ask the agent anything about DevDiv.</h2>
+                    <p>It can search work items, read GitHub issues, summarize, and (with dry-run off) post comments.</p>
+                </div>
+            </div>
+
+            <div class="composer">
+                <textarea id="prompt" placeholder="e.g. 'Find open feedback bugs about debug performance in the Project area and summarize the top 3.'"></textarea>
+                <div class="actions">
+                    <label><input type="checkbox" id="dryRun" checked /> Dry run (don't actually post)</label>
+                    <span id="activeSkill" style="font-size:0.78rem;color:#6f42c1;"></span>
+                    <button id="sendBtn">Send</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let skills = [];
+        let tools = [];
+        let activeSkillId = null;
+        let workingSet = [];
+
+        // --- init ---
+        (async function init() {
+            renderWorkingSet();
+            await Promise.all([loadSkills(), loadTools()]);
+        })();
+
+        // ----- working set -----
+        function renderWorkingSet() {
+            workingSet = AgentWorkingSet.read();
+            const list = document.getElementById('wsList');
+            const tag = document.getElementById('wsCountTag');
+
+            if (workingSet.length) {
+                tag.textContent = workingSet.length;
+                tag.style.display = 'inline-block';
+            } else {
+                tag.style.display = 'none';
+            }
+
+            if (!workingSet.length) {
+                list.innerHTML = '<div class="ws-empty">No items pinned yet. Pick rows on the Bugs or Feedback page and click "Send selected to Agent".</div>';
+                return;
+            }
+
+            list.innerHTML = workingSet.map(w => `
+                <div class="ws-item" data-id="${w.id}">
+                    <div class="head">
+                        <span class="id">#${w.id}</span>
+                        <button class="remove" title="Remove from working set">✕</button>
+                    </div>
+                    <span class="title">${escapeHtml(w.title || '')}</span>
+                    <span class="meta">${escapeHtml(w.type || 'WorkItem')} • ${escapeHtml(w.state || '?')} • P${w.priority ?? '?'} • ${escapeHtml(w.assignedTo || 'Unassigned')}</span>
+                    ${w.areaPath ? `<span class="meta">${escapeHtml(w.areaPath)}</span>` : ''}
+                </div>
+            `).join('');
+
+            list.querySelectorAll('.ws-item .remove').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const id = parseInt(btn.closest('.ws-item').dataset.id, 10);
+                    AgentWorkingSet.remove(id);
+                    renderWorkingSet();
+                });
+            });
+        }
+
+        document.getElementById('wsClear').addEventListener('click', () => {
+            if (!workingSet.length) return;
+            if (!confirm('Clear the entire working set?')) return;
+            AgentWorkingSet.clear();
+            renderWorkingSet();
+        });
+        document.getElementById('wsRefresh').addEventListener('click', renderWorkingSet);
+        // Re-render if another tab updated the working set.
+        window.addEventListener('storage', ev => {
+            if (ev.key === AgentWorkingSet.KEY) renderWorkingSet();
+        });
+
+        async function loadSkills() {
+            try {
+                const r = await authFetch('/api/agent/skills');
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                skills = await r.json();
+                renderSkills();
+            } catch (err) {
+                document.getElementById('skillList').innerHTML =
+                    `<div style="color:#cf222e;font-size:0.85rem;">Failed to load skills: ${escapeHtml(err.message)}</div>`;
+            }
+        }
+
+        async function loadTools() {
+            try {
+                const r = await authFetch('/api/agent/tools');
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                tools = await r.json();
+                renderTools();
+            } catch (err) {
+                document.getElementById('toolList').textContent = 'Failed to load tools: ' + err.message;
+            }
+        }
+
+        function renderSkills() {
+            const list = document.getElementById('skillList');
+            if (!skills.length) {
+                list.innerHTML = '<div style="font-size:0.85rem;color:#8c959f;">No skills yet. Create one below.</div>';
+                return;
+            }
+            list.innerHTML = skills.map(s => `
+                <div class="skill ${s.id === activeSkillId ? 'active' : ''}" data-id="${s.id}">
+                    <button class="delete" data-del="${s.id}" title="Delete">✕</button>
+                    <div class="name">${escapeHtml(s.name)}</div>
+                    <div class="desc">${escapeHtml(s.description || '')}</div>
+                    <div class="tools">${(s.suggestedTools || []).map(escapeHtml).join(', ') || 'all tools'}</div>
+                </div>
+            `).join('');
+
+            list.querySelectorAll('.skill').forEach(el => {
+                el.addEventListener('click', ev => {
+                    if (ev.target.dataset.del) return;
+                    const id = el.dataset.id;
+                    activeSkillId = (activeSkillId === id) ? null : id;
+                    renderSkills();
+                    updateActiveSkillLabel();
+                });
+            });
+            list.querySelectorAll('button.delete').forEach(b => {
+                b.addEventListener('click', async ev => {
+                    ev.stopPropagation();
+                    const id = b.dataset.del;
+                    if (!confirm('Delete this skill?')) return;
+                    const r = await authFetch('/api/agent/skills/' + id, { method: 'DELETE' });
+                    if (r.status === 204) {
+                        if (activeSkillId === id) activeSkillId = null;
+                        await loadSkills();
+                        updateActiveSkillLabel();
+                    }
+                });
+            });
+        }
+
+        function renderTools() {
+            const tdiv = document.getElementById('toolList');
+            tdiv.innerHTML = tools.map(t =>
+                `<div style="margin-bottom:6px;">
+                    <strong style="color:${t.isWriteTool ? '#cf222e' : '#1f883d'};">${escapeHtml(t.name)}</strong>
+                    ${t.isWriteTool ? '<span style="font-size:0.7rem;color:#cf222e;">(writes)</span>' : ''}
+                    <div style="font-size:0.78rem;color:#666;">${escapeHtml(t.description)}</div>
+                </div>`).join('');
+
+            const sel = document.getElementById('skTools');
+            sel.innerHTML = tools.map(t =>
+                `<option value="${escapeAttr(t.name)}">${escapeHtml(t.name)}${t.isWriteTool ? ' (writes)' : ''}</option>`
+            ).join('');
+        }
+
+        function updateActiveSkillLabel() {
+            const lbl = document.getElementById('activeSkill');
+            const s = skills.find(x => x.id === activeSkillId);
+            lbl.textContent = s ? `Skill: ${s.name}` : '';
+        }
+
+        // --- create skill ---
+        document.getElementById('skCreate').addEventListener('click', async () => {
+            const msg = document.getElementById('skCreateMsg');
+            msg.textContent = '';
+            const body = {
+                name: document.getElementById('skName').value.trim(),
+                description: document.getElementById('skDesc').value.trim(),
+                systemPromptAddendum: document.getElementById('skPrompt').value.trim(),
+                suggestedTools: Array.from(document.getElementById('skTools').selectedOptions).map(o => o.value)
+            };
+            if (!body.name) { msg.textContent = 'Name is required.'; return; }
+            try {
+                const r = await authFetch('/api/agent/skills', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                if (!r.ok) {
+                    const err = await r.json().catch(() => ({}));
+                    throw new Error(err.error || ('HTTP ' + r.status));
+                }
+                document.getElementById('skName').value = '';
+                document.getElementById('skDesc').value = '';
+                document.getElementById('skPrompt').value = '';
+                document.getElementById('skTools').selectedIndex = -1;
+                await loadSkills();
+            } catch (err) {
+                msg.textContent = 'Failed: ' + err.message;
+            }
+        });
+
+        // --- send ---
+        document.getElementById('sendBtn').addEventListener('click', sendPrompt);
+        document.getElementById('prompt').addEventListener('keydown', ev => {
+            if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) sendPrompt();
+        });
+
+        async function sendPrompt() {
+            const promptEl = document.getElementById('prompt');
+            const sendBtn = document.getElementById('sendBtn');
+            const text = promptEl.value.trim();
+            if (!text) return;
+
+            appendTurn('user', text);
+            promptEl.value = '';
+            sendBtn.disabled = true;
+
+            const thinking = appendTurn('assistant', '⏳ Thinking…');
+
+            try {
+                const r = await authFetch('/api/agent/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: text,
+                        skillId: activeSkillId,
+                        dryRun: document.getElementById('dryRun').checked,
+                        workingSet: workingSet
+                    })
+                });
+                if (!r.ok) {
+                    const err = await r.json().catch(() => ({ error: 'HTTP ' + r.status }));
+                    throw new Error(err.error || err.message || ('HTTP ' + r.status));
+                }
+                const data = await r.json();
+                thinking.remove();
+                renderTurns(data);
+            } catch (err) {
+                thinking.innerHTML = `<div class="role">error</div>${escapeHtml(err.message)}`;
+                thinking.classList.remove('assistant');
+                thinking.style.background = '#ffebe9';
+                thinking.style.borderColor = '#ff8182';
+            } finally {
+                sendBtn.disabled = false;
+            }
+        }
+
+        function renderTurns(result) {
+            const t = document.getElementById('transcript');
+            (result.transcript || []).forEach(entry => {
+                if (entry.role === 'tool_call') {
+                    appendTurn('tool',
+                        `<details><summary>🔧 ${escapeHtml(entry.toolName)} — call</summary>
+                            <pre>${escapeHtml(entry.toolArgs || '{}')}</pre>
+                        </details>`, /*raw=*/true);
+                } else if (entry.role === 'tool_result') {
+                    appendTurn('tool',
+                        `<details><summary>↪️ ${escapeHtml(entry.toolName)} — result</summary>
+                            <pre>${escapeHtml(entry.content || '')}</pre>
+                        </details>`, /*raw=*/true);
+                } else if (entry.role === 'assistant') {
+                    appendTurn('assistant', entry.content || '');
+                } else if (entry.role === 'error') {
+                    appendTurn('assistant', '⚠️ ' + (entry.content || ''));
+                }
+            });
+
+            if ((result.auditLog || []).length) {
+                const div = document.createElement('div');
+                div.className = 'audit';
+                div.innerHTML = '<strong>Audit log</strong><ul>' +
+                    result.auditLog.map(e => `<li>${escapeHtml(e)}</li>`).join('') +
+                    '</ul>';
+                t.appendChild(div);
+            }
+            t.scrollTop = t.scrollHeight;
+        }
+
+        function appendTurn(role, content, raw) {
+            const t = document.getElementById('transcript');
+            // remove placeholder on first turn
+            const empty = t.querySelector('.empty');
+            if (empty) empty.remove();
+
+            const el = document.createElement('div');
+            el.className = 'turn ' + role;
+            const roleLbl = role === 'user' ? 'you' : role;
+            el.innerHTML = `<div class="role">${escapeHtml(roleLbl)}</div>${raw ? content : escapeHtml(content)}`;
+            t.appendChild(el);
+            t.scrollTop = t.scrollHeight;
+            return el;
+        }
+
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            const div = document.createElement('div');
+            div.textContent = String(text);
+            return div.innerHTML;
+        }
+        function escapeAttr(text) {
+            return String(text).replace(/"/g, '&quot;');
+        }
+
+        renderUserInfo('userInfo', { linkColor: '#ffe1c8' });
+    </script>
+</body>
+</html>

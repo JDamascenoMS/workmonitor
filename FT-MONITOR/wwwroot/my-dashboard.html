@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Dashboard</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+        }
+
+        header {
+            background: linear-gradient(135deg, #0078d4, #005a9e);
+            color: #fff;
+            padding: 20px 40px;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        header a {
+            color: #b4d6fa;
+            font-size: 13px;
+            text-decoration: none;
+            margin-left: 20px;
+        }
+
+        header a:hover {
+            text-decoration: underline;
+        }
+
+        .user-bar {
+            margin-top: 6px;
+            font-size: 0.85rem;
+            color: #b4d6fa;
+        }
+
+        .user-bar a {
+            color: #b4d6fa;
+            margin-left: 0;
+        }
+
+        .content {
+            padding: 24px 40px;
+            max-width: 1200px;
+        }
+
+        /* ── Summary cards ── */
+        .summary-cards {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 28px;
+        }
+
+        .summary-card {
+            flex: 1 1 200px;
+            background: #fff;
+            border-radius: 8px;
+            padding: 18px 22px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            border-left: 4px solid transparent;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+
+        .summary-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+        }
+
+        .summary-card.active {
+            border-left-color: #0078d4;
+            background: #f0f7ff;
+        }
+
+        .summary-card .card-icon {
+            font-size: 1.6rem;
+            margin-bottom: 6px;
+        }
+
+        .summary-card .card-label {
+            font-size: 0.82rem;
+            color: #605e5c;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .summary-card .card-count {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #0078d4;
+            margin-top: 2px;
+        }
+
+        .summary-card .card-count.loading {
+            font-size: 0.9rem;
+            color: #999;
+        }
+
+        /* ── Section headings ── */
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+
+        .section-header h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #323130;
+        }
+
+        .section-header .badge {
+            background: #0078d4;
+            color: #fff;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .back-link {
+            font-size: 13px;
+            color: #0078d4;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        /* ── Table ── */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        th {
+            background: #0078d4;
+            color: #fff;
+            padding: 10px 14px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        td {
+            padding: 9px 14px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 13px;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tbody tr:hover td {
+            background: #f5faff;
+        }
+
+        .priority {
+            font-weight: 700;
+            text-align: center;
+            border-radius: 4px;
+            padding: 2px 8px;
+            display: inline-block;
+            min-width: 24px;
+            font-size: 12px;
+        }
+
+        .p1 {
+            background: #fde7e9;
+            color: #d13438;
+        }
+
+        .p2 {
+            background: #fff4ce;
+            color: #ca5010;
+        }
+
+        .p3 {
+            background: #edebe9;
+            color: #605e5c;
+        }
+
+        .p4 {
+            background: #f3f2f1;
+            color: #8a8886;
+        }
+
+        .type-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .type-bug {
+            background: #fde7e9;
+            color: #d13438;
+        }
+
+        .type-feedback {
+            background: #e8dfec;
+            color: #8764b8;
+        }
+
+        .state-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .state-active {
+            background: #dff6dd;
+            color: #107c10;
+        }
+
+        .state-new {
+            background: #e0efff;
+            color: #0078d4;
+        }
+
+        .state-resolved {
+            background: #fff4ce;
+            color: #ca5010;
+        }
+
+        .state-default {
+            background: #f3f2f1;
+            color: #605e5c;
+        }
+
+        .message {
+            padding: 20px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .error {
+            color: #d13438;
+            font-style: normal;
+            font-weight: 600;
+        }
+
+        /* ── Pagination ── */
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .pagination button {
+            padding: 6px 14px;
+            font-size: 13px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fff;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            background: #e0efff;
+            border-color: #0078d4;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .pagination .page-info {
+            font-size: 13px;
+            color: #605e5c;
+        }
+
+        .ado-link {
+            color: #0078d4;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .ado-link:hover {
+            text-decoration: underline;
+        }
+
+        .loading-spinner {
+            padding: 30px;
+            text-align: center;
+            color: #888;
+            font-style: italic;
+        }
+    </style>
+    <script src="/js/msal-auth.js"></script>
+</head>
+
+<body>
+    <header>
+        <h1>📋 My Dashboard <a href="/">← Home</a></h1>
+        <div class="user-bar" id="userInfo"></div>
+    </header>
+
+    <div class="content">
+        <div class="summary-cards" id="summaryCards">
+            <div class="summary-card" onclick="showSection('assigned','Bug')">
+                <div class="card-icon">🐛</div>
+                <div class="card-label">Bugs assigned to me</div>
+                <div class="card-count loading" id="count-assigned-Bug">…</div>
+            </div>
+            <div class="summary-card" onclick="showSection('assigned','FeedbackTicket')">
+                <div class="card-icon">💬</div>
+                <div class="card-label">Tickets assigned to me</div>
+                <div class="card-count loading" id="count-assigned-FeedbackTicket">…</div>
+            </div>
+            <div class="summary-card" onclick="showSection('mentioned','Bug')">
+                <div class="card-icon">🔔</div>
+                <div class="card-label">Bugs mentioning me</div>
+                <div class="card-count loading" id="count-mentioned-Bug">…</div>
+            </div>
+            <div class="summary-card" onclick="showSection('mentioned','FeedbackTicket')">
+                <div class="card-icon">📢</div>
+                <div class="card-label">Tickets mentioning me</div>
+                <div class="card-count loading" id="count-mentioned-FeedbackTicket">…</div>
+            </div>
+        </div>
+
+        <div id="dashboardView">
+            <div class="section-header">
+                <h2>🕐 Recently Changed <span class="badge" id="topBadge">10</span></h2>
+            </div>
+            <div id="topTable">
+                <p class="loading-spinner">Loading your items...</p>
+            </div>
+        </div>
+
+        <div id="listView" style="display:none;">
+            <div class="section-header">
+                <h2 id="listTitle">Items</h2>
+                <span class="back-link" onclick="showDashboard()">← Back to dashboard</span>
+            </div>
+            <div id="listTable"></div>
+            <div class="pagination" id="paginationBar" style="display:none;">
+                <button id="prevBtn" onclick="changePage(-1)">← Previous</button>
+                <span class="page-info" id="pageInfo"></span>
+                <button id="nextBtn" onclick="changePage(1)">Next →</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var ORG = 'devdiv';
+        var PROJECT = 'devdiv';
+        var currentMode = '';
+        var currentType = '';
+        var currentPage = 1;
+        var totalPages = 1;
+        var PAGE_SIZE = 20;
+
+        loadUserInfo();
+        loadDashboard();
+        loadCounts();
+
+        function loadUserInfo() {
+            renderUserInfo('userInfo');
+        }
+
+        async function loadDashboard() {
+            var container = document.getElementById('topTable');
+            try {
+                var response = await authFetch('/api/my-dashboard');
+                if (!response.ok) throw new Error('Failed to load dashboard');
+                var data = await response.json();
+
+                if (!data.items || data.items.length === 0) {
+                    container.innerHTML = '<p class="message">No recent items found assigned to or mentioning you.</p>';
+                    document.getElementById('topBadge').textContent = '0';
+                    return;
+                }
+
+                document.getElementById('topBadge').textContent = data.items.length;
+                container.innerHTML = buildTable(data.items, true);
+            } catch (err) {
+                container.innerHTML = '<p class="message error">Error: ' + err.message + '</p>';
+            }
+        }
+
+        async function loadCounts() {
+            var sections = [
+                { mode: 'assigned', type: 'Bug' },
+                { mode: 'assigned', type: 'FeedbackTicket' },
+                { mode: 'mentioned', type: 'Bug' },
+                { mode: 'mentioned', type: 'FeedbackTicket' }
+            ];
+
+            for (var i = 0; i < sections.length; i++) {
+                var s = sections[i];
+                loadCount(s.mode, s.type);
+            }
+        }
+
+        async function loadCount(mode, type) {
+            var el = document.getElementById('count-' + mode + '-' + type);
+            try {
+                var response = await authFetch('/api/my-items?type=' + encodeURIComponent(type) + '&mode=' + encodeURIComponent(mode) + '&page=1&pageSize=1');
+                if (!response.ok) throw new Error('Failed');
+                var data = await response.json();
+                el.textContent = data.totalCount;
+                el.className = 'card-count';
+            } catch (err) {
+                el.textContent = '–';
+                el.className = 'card-count';
+            }
+        }
+
+        function showDashboard() {
+            document.getElementById('dashboardView').style.display = '';
+            document.getElementById('listView').style.display = 'none';
+
+            document.querySelectorAll('.summary-card').forEach(function (c) { c.classList.remove('active'); });
+        }
+
+        function showSection(mode, type) {
+            currentMode = mode;
+            currentType = type;
+            currentPage = 1;
+
+            document.getElementById('dashboardView').style.display = 'none';
+            document.getElementById('listView').style.display = '';
+
+            document.querySelectorAll('.summary-card').forEach(function (c) { c.classList.remove('active'); });
+            var cards = document.querySelectorAll('.summary-card');
+            var idx = (mode === 'mentioned' ? 2 : 0) + (type === 'FeedbackTicket' ? 1 : 0);
+            if (cards[idx]) cards[idx].classList.add('active');
+
+            var typeLabel = type === 'Bug' ? 'Bugs' : 'Feedback Tickets';
+            var modeLabel = mode === 'mentioned' ? 'mentioning me' : 'assigned to me';
+            document.getElementById('listTitle').textContent = typeLabel + ' ' + modeLabel;
+
+            loadPage();
+        }
+
+        async function loadPage() {
+            var container = document.getElementById('listTable');
+            container.innerHTML = '<p class="loading-spinner">Loading page ' + currentPage + '...</p>';
+            document.getElementById('paginationBar').style.display = 'none';
+
+            try {
+                var url = '/api/my-items?type=' + encodeURIComponent(currentType)
+                    + '&mode=' + encodeURIComponent(currentMode)
+                    + '&page=' + currentPage
+                    + '&pageSize=' + PAGE_SIZE;
+
+                var response = await authFetch(url);
+                if (!response.ok) throw new Error('Failed to load items');
+                var data = await response.json();
+
+                totalPages = data.totalPages || 1;
+
+                if (!data.items || data.items.length === 0) {
+                    container.innerHTML = '<p class="message">No items found.</p>';
+                    return;
+                }
+
+                container.innerHTML = buildTable(data.items, false);
+
+                if (totalPages > 1) {
+                    document.getElementById('paginationBar').style.display = 'flex';
+                    document.getElementById('pageInfo').textContent = 'Page ' + currentPage + ' of ' + totalPages + ' (' + data.totalCount + ' items)';
+                    document.getElementById('prevBtn').disabled = currentPage <= 1;
+                    document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+                }
+            } catch (err) {
+                container.innerHTML = '<p class="message error">Error: ' + err.message + '</p>';
+            }
+        }
+
+        function changePage(delta) {
+            currentPage += delta;
+            if (currentPage < 1) currentPage = 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+            loadPage();
+        }
+
+        function buildTable(items, showType) {
+            var html = '<table><thead><tr>';
+            html += '<th>#</th><th>ID</th>';
+            if (showType) html += '<th>Type</th>';
+            html += '<th>Priority</th><th>Title</th><th>Assigned To</th><th>State</th><th>Area Path</th><th>Last Changed</th>';
+            html += '</tr></thead><tbody>';
+
+            items.forEach(function (item, index) {
+                var p = item.priority || '-';
+                var changed = item.changedDate ? new Date(item.changedDate).toLocaleString() : '-';
+                var wiUrl = 'https://dev.azure.com/' + ORG + '/' + PROJECT + '/_workitems/edit/' + item.id;
+                var stateClass = getStateClass(item.state);
+                var typeClass = item.workItemType === 'Bug' ? 'type-bug' : 'type-feedback';
+                var typeLabel = item.workItemType === 'Bug' ? 'Bug' : 'Feedback';
+
+                html += '<tr>';
+                html += '<td>' + (index + 1 + (showType ? 0 : (currentPage - 1) * PAGE_SIZE)) + '</td>';
+                html += '<td><a class="ado-link" href="' + wiUrl + '" target="_blank">' + item.id + '</a></td>';
+                if (showType) html += '<td><span class="type-badge ' + typeClass + '">' + typeLabel + '</span></td>';
+                html += '<td><span class="priority p' + p + '">' + p + '</span></td>';
+                html += '<td>' + (item.title || '') + '</td>';
+                html += '<td>' + (item.assignedTo || '') + '</td>';
+                html += '<td><span class="state-badge ' + stateClass + '">' + (item.state || '') + '</span></td>';
+                html += '<td>' + (item.areaPath || '') + '</td>';
+                html += '<td>' + changed + '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            return html;
+        }
+
+        function getStateClass(state) {
+            if (!state) return 'state-default';
+            switch (state.toLowerCase()) {
+                case 'active': return 'state-active';
+                case 'new': return 'state-new';
+                case 'resolved': return 'state-resolved';
+                default: return 'state-default';
+            }
+        }
+    </script>
+</body>
+
+</html>

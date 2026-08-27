@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FT Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f3f2f1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+            .header h1 {
+                font-size: 2.4rem;
+                font-weight: 600;
+                color: #323130;
+            }
+
+            .header p {
+                font-size: 1rem;
+                color: #605e5c;
+                margin-top: 8px;
+            }
+
+        .cards {
+            display: flex;
+            gap: 32px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            width: 280px;
+            padding: 32px 28px;
+            text-decoration: none;
+            color: inherit;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-top: 4px solid transparent;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+            .card:hover {
+                transform: translateY(-4px);
+                box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+            }
+
+            .card.bugs {
+                border-top-color: #0078d4;
+            }
+
+            .card.feedback {
+                border-top-color: #8764b8;
+            }
+
+            .card.dashboard {
+                border-top-color: #107c10;
+            }
+
+            .card.parameters {
+                border-top-color: #ca5010;
+            }
+
+            .card.mydash {
+                border-top-color: #005a9e;
+            }
+
+            .card.github {
+                border-top-color: #24292f;
+            }
+
+            .card.agent {
+                border-top-color: #6f42c1;
+            }
+
+            .card .icon {
+                font-size: 2.2rem;
+            }
+
+            .card h2 {
+                font-size: 1.3rem;
+                font-weight: 600;
+                color: #323130;
+            }
+
+            .card p {
+                font-size: 0.92rem;
+                color: #605e5c;
+                line-height: 1.5;
+            }
+
+            .card .arrow {
+                margin-top: auto;
+                font-size: 0.9rem;
+                font-weight: 600;
+            }
+
+            .card.bugs .arrow {
+                color: #0078d4;
+            }
+
+            .card.feedback .arrow {
+                color: #8764b8;
+            }
+
+            .card.dashboard .arrow {
+                color: #107c10;
+            }
+
+            .card.parameters .arrow {
+                color: #ca5010;
+            }
+
+            .card.mydash .arrow {
+                color: #005a9e;
+            }
+
+            .card.github .arrow {
+                color: #24292f;
+            }
+
+            .card.agent .arrow {
+                color: #6f42c1;
+            }
+
+        footer {
+            position: fixed;
+            bottom: 16px;
+            color: #a19f9d;
+            font-size: 0.8rem;
+        }
+    </style>
+    <script src="/js/msal-auth.js"></script>
+</head>
+<body>
+    <div class="header">
+        <h1>🖥️ FT Monitor</h1>
+        <p>Work item tracking &amp; AI-powered triage dashboard</p>
+        <div id="userInfo" style="margin-top:12px;font-size:0.9rem;color:#605e5c;"></div>
+    </div>
+
+    <div class="cards">
+        <a href="/my-dashboard.html" class="card mydash">
+            <div class="icon">📋</div>
+            <h2>My Dashboard</h2>
+            <p>Bugs and tickets assigned to you or mentioning you, with your most recently changed items at a glance.</p>
+            <span class="arrow">Open My Dashboard →</span>
+        </a>
+
+        <a href="/top-bugs.html" class="card bugs">
+            <div class="icon">🐛</div>
+            <h2>Bugs</h2>
+            <p>View top bugs by priority, summarize with AI, draft customer responses, and scaffold projects.</p>
+            <span class="arrow">Open Bugs →</span>
+        </a>
+
+        <a href="/top-feedback.html" class="card feedback">
+            <div class="icon">💬</div>
+            <h2>Feedback Tickets</h2>
+            <p>Browse recent feedback tickets, analyze trends, and generate replies for customer reports.</p>
+            <span class="arrow">Open Feedback →</span>
+        </a>
+
+        <a href="/feedback-insights.html" class="card dashboard">
+            <div class="icon">📊</div>
+            <h2>Feedback Insights</h2>
+            <p>Choose between AI theme analysis or the top 5 most relevant tickets ranked by score, theme weight, and recent similarity.</p>
+            <span class="arrow">Open Insights →</span>
+        </a>
+
+        <a href="/parameters.html" class="card parameters">
+            <div class="icon">⚙️</div>
+            <h2>Parameters</h2>
+            <p>Manage area paths and other settings that impact bug and feedback queries across the app.</p>
+            <span class="arrow">Open Parameters →</span>
+        </a>
+
+        <a href="/github-issues.html" class="card github">
+            <div class="icon">🐙</div>
+            <h2>GitHub Issues</h2>
+            <p>Browse issues from connected GitHub repositories — filter by state, label, or assignee, and summarize with AI.</p>
+            <span class="arrow">Open GitHub Issues →</span>
+        </a>
+
+        <a href="/agent.html" class="card agent">
+            <div class="icon">🤖</div>
+            <h2>Agent</h2>
+            <p>Free-form AI agent that searches DevDiv work items, reads GitHub issues, and (with dry-run off) posts comments. Save reusable skills for common tasks.</p>
+            <span class="arrow">Open Agent →</span>
+        </a>
+    </div>
+
+    <footer>FT Monitor &mdash; DevDiv</footer>
+    <script>
+        renderUserInfo('userInfo', { linkColor: '#0078d4' });
+    </script>
+</body>
+</html>

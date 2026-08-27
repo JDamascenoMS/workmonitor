@@ -1,0 +1,6 @@
+@FT_MONITOR_HostAddress = http://localhost:5191
+
+GET {{FT_MONITOR_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

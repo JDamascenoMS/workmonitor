@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parameters</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+        }
+
+        header {
+            background: #ca5010;
+            color: #fff;
+            padding: 20px 40px;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        header a {
+            color: #ffdac2;
+            font-size: 13px;
+            text-decoration: none;
+            margin-left: 20px;
+        }
+
+        header a:hover {
+            text-decoration: underline;
+        }
+
+        .content {
+            padding: 24px 40px;
+            max-width: 900px;
+        }
+
+        .section-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #323130;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title .badge {
+            background: #ca5010;
+            color: #fff;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 24px;
+        }
+
+        th {
+            background: #ca5010;
+            color: #fff;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 10px 16px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tbody tr:hover td {
+            background: #fff8f3;
+        }
+
+        td.path-cell {
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 13px;
+            color: #605e5c;
+        }
+
+        .actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .btn {
+            padding: 5px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-edit {
+            background: #0078d4;
+            color: #fff;
+        }
+
+        .btn-edit:hover:not(:disabled) {
+            background: #106ebe;
+        }
+
+        .btn-delete {
+            background: #d13438;
+            color: #fff;
+        }
+
+        .btn-delete:hover:not(:disabled) {
+            background: #a4262c;
+        }
+
+        .btn-save {
+            background: #107c10;
+            color: #fff;
+        }
+
+        .btn-save:hover:not(:disabled) {
+            background: #0b6a0b;
+        }
+
+        .btn-cancel {
+            background: #605e5c;
+            color: #fff;
+        }
+
+        .btn-cancel:hover:not(:disabled) {
+            background: #484644;
+        }
+
+        .add-form {
+            background: #fff;
+            border-radius: 6px;
+            padding: 20px 24px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 24px;
+        }
+
+        .add-form h3 {
+            font-size: 0.95rem;
+            color: #ca5010;
+            margin-bottom: 14px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .form-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #605e5c;
+        }
+
+        .form-group input {
+            padding: 8px 12px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #ca5010;
+            box-shadow: 0 0 0 1px #ca5010;
+        }
+
+        .form-group.name-field input {
+            width: 200px;
+        }
+
+        .form-group.path-field input {
+            width: 360px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .btn-add {
+            background: #ca5010;
+            color: #fff;
+            padding: 8px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-add:hover:not(:disabled) {
+            background: #b3470e;
+        }
+
+        .btn-add:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .message {
+            padding: 12px 16px;
+            border-radius: 4px;
+            font-size: 13px;
+            margin-bottom: 16px;
+        }
+
+        .message.success {
+            background: #dff6dd;
+            border: 1px solid #107c10;
+            color: #107c10;
+        }
+
+        .message.error {
+            background: #fde7e9;
+            border: 1px solid #d13438;
+            color: #d13438;
+        }
+
+        .loading {
+            padding: 20px;
+            color: #888;
+            font-style: italic;
+        }
+
+        .edit-input {
+            padding: 4px 8px;
+            font-size: 13px;
+            border: 1px solid #0078d4;
+            border-radius: 3px;
+            width: 100%;
+        }
+
+        .edit-input.path {
+            font-family: 'Consolas', 'Courier New', monospace;
+        }
+
+        .user-info {
+            margin-top: 6px;
+            font-size: 0.85rem;
+            color: #ffdac2;
+        }
+
+        .user-info a {
+            color: #ffdac2;
+            margin-left: 0;
+        }
+    </style>
+    <script src="/js/msal-auth.js"></script>
+</head>
+
+<body>
+    <header>
+        <h1>⚙️ Parameters <a href="/">← Back to Home</a></h1>
+        <div class="user-info" id="userInfo"></div>
+    </header>
+
+    <div class="content">
+        <div id="statusMsg"></div>
+
+        <div class="section-title">
+            Area Paths <span class="badge" id="countBadge">0</span>
+        </div>
+
+        <div id="tableContainer">
+            <p class="loading">Loading area paths...</p>
+        </div>
+
+        <div class="add-form">
+            <h3>➕ Add New Area Path</h3>
+            <div class="form-row">
+                <div class="form-group name-field">
+                    <label for="newName">Display Name</label>
+                    <input type="text" id="newName" placeholder="e.g. My Team">
+                </div>
+                <div class="form-group path-field">
+                    <label for="newPath">Area Path</label>
+                    <input type="text" id="newPath" placeholder="e.g. DevDiv\\.NET Tools\\My Team">
+                </div>
+                <button class="btn-add" id="addBtn" onclick="addAreaPath()">Add</button>
+            </div>
+        </div>
+
+        <div class="section-title" style="margin-top:32px;">
+            Saved Queries <span class="badge" id="queryCountBadge">0</span>
+        </div>
+
+        <div id="queryTableContainer">
+            <p class="loading">Loading saved queries...</p>
+        </div>
+
+        <div class="add-form">
+            <h3>➕ Add New Saved Query</h3>
+            <div class="form-row">
+                <div class="form-group name-field">
+                    <label for="newQueryName">Display Name</label>
+                    <input type="text" id="newQueryName" placeholder="e.g. Open P1 Feedback">
+                </div>
+                <div class="form-group path-field">
+                    <label for="newQueryId">Query ID (GUID)</label>
+                    <input type="text" id="newQueryId" placeholder="e.g. a1b2c3d4-e5f6-7890-abcd-ef1234567890">
+                </div>
+                <button class="btn-add" id="addQueryBtn" onclick="addSavedQuery()">Add</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var areaPaths = [];
+        var editingName = null;
+        var savedQueries = [];
+        var editingQueryName = null;
+
+        loadAreaPaths();
+        loadSavedQueries();
+        loadUserInfo();
+
+        function loadUserInfo() {
+            renderUserInfo('userInfo');
+        }
+
+        async function loadAreaPaths() {
+            try {
+                var response = await authFetch('/api/parameters/area-paths');
+                if (!response.ok) throw new Error('Failed to load area paths');
+                areaPaths = await response.json();
+                renderTable();
+            } catch (err) {
+                document.getElementById('tableContainer').innerHTML =
+                    '<p class="loading" style="color:#d13438;">Error: ' + err.message + '</p>';
+            }
+        }
+
+        function renderTable() {
+            document.getElementById('countBadge').textContent = areaPaths.length;
+
+            if (areaPaths.length === 0) {
+                document.getElementById('tableContainer').innerHTML =
+                    '<p class="loading">No area paths configured. Add one below.</p>';
+                return;
+            }
+
+            var html = '<table><thead><tr><th>#</th><th>Display Name</th><th>Area Path</th><th style="width:140px;">Actions</th></tr></thead><tbody>';
+
+            areaPaths.forEach(function (item, index) {
+                if (editingName === item.name) {
+                    html += '<tr>';
+                    html += '<td>' + (index + 1) + '</td>';
+                    html += '<td><input class="edit-input" id="edit-name" value="' + escapeAttr(item.name) + '"></td>';
+                    html += '<td><input class="edit-input path" id="edit-path" value="' + escapeAttr(item.path) + '"></td>';
+                    html += '<td class="actions">';
+                    html += '<button class="btn btn-save" onclick="saveEdit(\'' + escapeAttr(item.name) + '\')">Save</button>';
+                    html += '<button class="btn btn-cancel" onclick="cancelEdit()">Cancel</button>';
+                    html += '</td></tr>';
+                } else {
+                    html += '<tr>';
+                    html += '<td>' + (index + 1) + '</td>';
+                    html += '<td><strong>' + escapeHtml(item.name) + '</strong></td>';
+                    html += '<td class="path-cell">' + escapeHtml(item.path) + '</td>';
+                    html += '<td class="actions">';
+                    html += '<button class="btn btn-edit" onclick="startEdit(\'' + escapeAttr(item.name) + '\')">Edit</button>';
+                    html += '<button class="btn btn-delete" onclick="deleteAreaPath(\'' + escapeAttr(item.name) + '\')">Delete</button>';
+                    html += '</td></tr>';
+                }
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('tableContainer').innerHTML = html;
+        }
+
+        function startEdit(name) {
+            editingName = name;
+            renderTable();
+        }
+
+        function cancelEdit() {
+            editingName = null;
+            renderTable();
+        }
+
+        async function saveEdit(originalName) {
+            var newName = document.getElementById('edit-name').value.trim();
+            var newPath = document.getElementById('edit-path').value.trim();
+
+            if (!newName || !newPath) {
+                showMessage('Name and Path are required.', 'error');
+                return;
+            }
+
+            try {
+                var response = await authFetch('/api/parameters/area-paths/' + encodeURIComponent(originalName), {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName, path: newPath })
+                });
+
+                if (!response.ok) {
+                    var errText = await response.text();
+                    throw new Error(errText || 'Update failed');
+                }
+
+                editingName = null;
+                showMessage('Area path "' + newName + '" updated.', 'success');
+                await loadAreaPaths();
+            } catch (err) {
+                showMessage('Error: ' + err.message, 'error');
+            }
+        }
+
+        async function addAreaPath() {
+            var name = document.getElementById('newName').value.trim();
+            var path = document.getElementById('newPath').value.trim();
+
+            if (!name || !path) {
+                showMessage('Both Display Name and Area Path are required.', 'error');
+                return;
+            }
+
+            var btn = document.getElementById('addBtn');
+            btn.disabled = true;
+
+            try {
+                var response = await authFetch('/api/parameters/area-paths', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, path: path })
+                });
+
+                if (!response.ok) {
+                    var errText = await response.text();
+                    throw new Error(errText || 'Add failed');
+                }
+
+                document.getElementById('newName').value = '';
+                document.getElementById('newPath').value = '';
+                showMessage('Area path "' + name + '" added.', 'success');
+                await loadAreaPaths();
+            } catch (err) {
+                showMessage('Error: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function deleteAreaPath(name) {
+            if (!confirm('Delete area path "' + name + '"? This cannot be undone.')) return;
+
+            try {
+                var response = await authFetch('/api/parameters/area-paths/' + encodeURIComponent(name), {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    var errText = await response.text();
+                    throw new Error(errText || 'Delete failed');
+                }
+
+                showMessage('Area path "' + name + '" deleted.', 'success');
+                await loadAreaPaths();
+            } catch (err) {
+                showMessage('Error: ' + err.message, 'error');
+            }
+        }
+
+        function showMessage(text, type) {
+            var el = document.getElementById('statusMsg');
+            el.innerHTML = '<div class="message ' + type + '">' + text + '</div>';
+            setTimeout(function () { el.innerHTML = ''; }, 5000);
+        }
+
+        function escapeHtml(str) {
+            var div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function escapeAttr(str) {
+            return str.replace(/&/g, '&amp;').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        }
+
+        async function loadSavedQueries() {
+            try {
+                var response = await authFetch('/api/parameters/saved-queries');
+                if (!response.ok) throw new Error('Failed to load saved queries');
+                savedQueries = await response.json();
+                renderQueryTable();
+            } catch (err) {
+                document.getElementById('queryTableContainer').innerHTML =
+                    '<p class="loading" style="color:#d13438;">Error: ' + err.message + '</p>';
+            }
+        }
+
+        function renderQueryTable() {
+            document.getElementById('queryCountBadge').textContent = savedQueries.length;
+
+            if (savedQueries.length === 0) {
+                document.getElementById('queryTableContainer').innerHTML =
+                    '<p class="loading">No saved queries configured. Add one below.</p>';
+                return;
+            }
+
+            var html = '<table><thead><tr><th>#</th><th>Display Name</th><th>Query ID</th><th style="width:140px;">Actions</th></tr></thead><tbody>';
+
+            savedQueries.forEach(function (item, index) {
+                if (editingQueryName === item.name) {
+                    html += '<tr>';
+                    html += '<td>' + (index + 1) + '</td>';
+                    html += '<td><input class="edit-input" id="edit-query-name" value="' + escapeAttr(item.name) + '"></td>';
+                    html += '<td><input class="edit-input path" id="edit-query-id" value="' + escapeAttr(item.queryId) + '"></td>';
+                    html += '<td class="actions">';
+                    html += '<button class="btn btn-save" onclick="saveQueryEdit(\'' + escapeAttr(item.name) + '\')">Save</button>';
+                    html += '<button class="btn btn-cancel" onclick="cancelQueryEdit()">Cancel</button>';
+                    html += '</td></tr>';
+                } else {
+                    html += '<tr>';
+                    html += '<td>' + (index + 1) + '</td>';
+                    html += '<td><strong>' + escapeHtml(item.name) + '</strong></td>';
+                    html += '<td class="path-cell">' + escapeHtml(item.queryId) + '</td>';
+                    html += '<td class="actions">';
+                    html += '<button class="btn btn-edit" onclick="startQueryEdit(\'' + escapeAttr(item.name) + '\')">Edit</button>';
+                    html += '<button class="btn btn-delete" onclick="deleteSavedQuery(\'' + escapeAttr(item.name) + '\')">Delete</button>';
+                    html += '</td></tr>';
+                }
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('queryTableContainer').innerHTML = html;
+        }
+
+        function startQueryEdit(name) {
+            editingQueryName = name;
+            renderQueryTable();
+        }
+
+        function cancelQueryEdit() {
+            editingQueryName = null;
+            renderQueryTable();
+        }
+
+        async function saveQueryEdit(originalName) {
+            var newName = document.getElementById('edit-query-name').value.trim();
+            var newQueryId = document.getElementById('edit-query-id').value.trim();
+
+            if (!newName || !newQueryId) {
+                showMessage('Name and Query ID are required.', 'error');
+                return;
+            }
+
+            try {
+                var response = await authFetch('/api/parameters/saved-queries/' + encodeURIComponent(originalName), {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName, queryId: newQueryId })
+                });
+
+                if (!response.ok) {
+                    var errText = await response.text();
+                    throw new Error(errText || 'Update failed');
+                }
+
+                editingQueryName = null;
+                showMessage('Saved query "' + newName + '" updated.', 'success');
+                await loadSavedQueries();
+            } catch (err) {
+                showMessage('Error: ' + err.message, 'error');
+            }
+        }
+
+        async function addSavedQuery() {
+            var name = document.getElementById('newQueryName').value.trim();
+            var queryId = document.getElementById('newQueryId').value.trim();
+
+            if (!name || !queryId) {
+                showMessage('Both Display Name and Query ID are required.', 'error');
+                return;
+            }
+
+            var btn = document.getElementById('addQueryBtn');
+            btn.disabled = true;
+
+            try {
+                var response = await authFetch('/api/parameters/saved-queries', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, queryId: queryId })
+                });
+
+                if (!response.ok) {
+                    var errText = await response.text();
+                    throw new Error(errText || 'Add failed');
+                }
+
+                document.getElementById('newQueryName').value = '';
+                document.getElementById('newQueryId').value = '';
+                showMessage('Saved query "' + name + '" added.', 'success');
+                await loadSavedQueries();
+            } catch (err) {
+                showMessage('Error: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function deleteSavedQuery(name) {
+            if (!confirm('Delete saved query "' + name + '"? This cannot be undone.')) return;
+
+            try {
+                var response = await authFetch('/api/parameters/saved-queries/' + encodeURIComponent(name), {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    var errText = await response.text();
+                    throw new Error(errText || 'Delete failed');
+                }
+
+                showMessage('Saved query "' + name + '" deleted.', 'success');
+                await loadSavedQueries();
+            } catch (err) {
+                showMessage('Error: ' + err.message, 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>

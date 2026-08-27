@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Signed in</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex; align-items: center; justify-content: center;
+            min-height: 100vh; margin: 0; background: #f0f2f5; color: #323130;
+            text-align: center;
+        }
+        .box {
+            background: #fff; padding: 28px 32px; border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        .check { font-size: 2.4rem; color: #107c10; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <div class="check">✅</div>
+        <p>Signed in. You can close this window.</p>
+    </div>
+    <script>
+        // Notify the opener that auth completed, then close.
+        try {
+            if (window.opener && !window.opener.closed) {
+                window.opener.postMessage({ type: 'ft-monitor-auth', status: 'success' }, window.location.origin);
+            }
+        } catch (e) { /* ignore */ }
+        // Close after a short delay so the user sees the confirmation.
+        setTimeout(function () { try { window.close(); } catch (e) {} }, 600);
+    </script>
+</body>
+</html>

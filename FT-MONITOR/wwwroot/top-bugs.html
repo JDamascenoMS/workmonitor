@@ -1,0 +1,1027 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Top 10 Bugs by Priority</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+        }
+
+        header {
+            background: #0078d4;
+            color: #fff;
+            padding: 20px 40px;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding: 20px 40px;
+            background: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            flex-wrap: wrap;
+        }
+
+        .controls label {
+            font-weight: 600;
+        }
+
+        .controls select,
+        .controls button,
+        .controls input[type="text"] {
+            padding: 8px 16px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .controls button {
+            background: #0078d4;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .controls button:hover {
+            background: #106ebe;
+        }
+
+        .controls button.secondary {
+            background: #605e5c;
+        }
+
+        .controls button.secondary:hover {
+            background: #484644;
+        }
+
+        .controls select {
+            max-width: 280px;
+        }
+
+        .controls input[type="text"] {
+            width: 220px;
+        }
+
+        .controls .separator {
+            width: 1px;
+            height: 30px;
+            background: #e0e0e0;
+            margin: 0 4px;
+        }
+
+        .content {
+            padding: 20px 40px;
+        }
+
+        .message {
+            padding: 20px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .error {
+            color: #d13438;
+            font-style: normal;
+            font-weight: 600;
+        }
+
+        .result-info {
+            padding: 8px 0 12px 0;
+            font-size: 13px;
+            color: #605e5c;
+        }
+
+        .result-info strong {
+            color: #0078d4;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        th {
+            background: #0078d4;
+            color: #fff;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 10px 16px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr.clickable {
+            cursor: pointer;
+        }
+
+        tr.clickable:hover td {
+            background: #e0efff;
+        }
+
+        tr.clickable.selected td {
+            background: #cce4ff;
+            border-bottom-color: #0078d4;
+        }
+
+        .priority {
+            font-weight: 700;
+            text-align: center;
+            border-radius: 4px;
+            padding: 2px 8px;
+            display: inline-block;
+            min-width: 24px;
+        }
+
+        .p1 {
+            background: #fde7e9;
+            color: #d13438;
+        }
+
+        .p2 {
+            background: #fff4ce;
+            color: #ca5010;
+        }
+
+        .p3 {
+            background: #edebe9;
+            color: #605e5c;
+        }
+
+        .p4 {
+            background: #f3f2f1;
+            color: #8a8886;
+        }
+
+        /* Details pane */
+        .details-row td {
+            padding: 0;
+            background: #f8f9fa;
+            border-bottom: 2px solid #0078d4;
+        }
+
+        .details-pane {
+            padding: 20px 24px;
+        }
+
+        .details-pane .details-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .details-pane .details-header h3 {
+            font-size: 1.1rem;
+            color: #0078d4;
+        }
+
+        .details-pane .details-header a {
+            font-size: 13px;
+            color: #0078d4;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .details-pane .details-header a:hover {
+            text-decoration: underline;
+        }
+
+        .details-pane .meta {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .details-pane .meta-item {
+            font-size: 13px;
+        }
+
+        .details-pane .meta-item strong {
+            color: #333;
+        }
+
+        .details-pane .meta-item span {
+            color: #666;
+        }
+
+        .details-pane .section {
+            margin-bottom: 16px;
+        }
+
+        .details-pane .section h4 {
+            font-size: 0.9rem;
+            color: #444;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 4px;
+        }
+
+        .details-pane .description-content {
+            font-size: 13px;
+            line-height: 1.6;
+            color: #444;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 8px;
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+        }
+
+        .details-pane .comment-list {
+            list-style: none;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .details-pane .comment-item {
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .details-pane .comment-item .comment-meta {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+
+        .details-pane .comment-item .comment-text {
+            color: #444;
+        }
+
+        .details-pane .loading-details {
+            color: #888;
+            font-style: italic;
+        }
+
+        .state-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .state-active {
+            background: #dff6dd;
+            color: #107c10;
+        }
+
+        .state-new {
+            background: #e0efff;
+            color: #0078d4;
+        }
+
+        .state-resolved {
+            background: #fff4ce;
+            color: #ca5010;
+        }
+
+        .state-default {
+            background: #f3f2f1;
+            color: #605e5c;
+        }
+
+        .close-btn {
+            background: none;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 4px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .close-btn:hover {
+            background: #f0f0f0;
+        }
+
+        .ai-btn {
+            background: linear-gradient(135deg, #6b3fa0, #0078d4);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 14px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .ai-btn:hover {
+            opacity: 0.9;
+        }
+
+        .ai-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .reply-btn {
+            background: linear-gradient(135deg, #107c10, #0078d4);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 14px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .reply-btn:hover {
+            opacity: 0.9;
+        }
+
+        .reply-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .ai-summary {
+            margin-top: 12px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #f3edf7, #e8f0fe);
+            border: 1px solid #d0c4e0;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .ai-summary .ai-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #6b3fa0;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .ai-reply {
+            margin-top: 12px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #e8f5e9, #e8f0fe);
+            border: 1px solid #a5d6a7;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .ai-reply .ai-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #107c10;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .ai-reply pre {
+            white-space: pre-wrap;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 13px;
+            margin: 0;
+        }
+
+        .copy-btn {
+            background: #0078d4;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 12px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            float: right;
+        }
+
+        .copy-btn:hover {
+            background: #106ebe;
+        }
+
+        .scaffold-section {
+            margin-top: 16px;
+            padding: 14px 16px;
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+        }
+
+        .scaffold-section h4 {
+            font-size: 0.9rem;
+            color: #0078d4;
+            margin-bottom: 10px;
+        }
+
+        .scaffold-section textarea {
+            width: 100%;
+            min-height: 60px;
+            padding: 8px;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 13px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+        }
+
+        .scaffold-btn {
+            background: linear-gradient(135deg, #ca5010, #0078d4);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 16px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        .scaffold-btn:hover {
+            opacity: 0.9;
+        }
+
+        .scaffold-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .scaffold-error {
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: #fde7e9;
+            border: 1px solid #d13438;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #d13438;
+        }
+
+        .scaffold-success {
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: #dff6dd;
+            border: 1px solid #107c10;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #107c10;
+        }
+
+        /* Agent selection mode visuals */
+        body.agent-selecting tr.clickable { cursor: copy; }
+        body.agent-selecting tr.agent-picked { background: #ede1ff !important; }
+        body.agent-selecting tr.agent-picked td:first-child::before {
+            content: "✓"; color: #6f42c1; font-weight: 700; margin-right: 4px;
+        }
+
+        #agentBar {
+            position: fixed !important;
+            right: 20px !important;
+            bottom: 20px !important;
+            z-index: 2147483000 !important;
+            display: flex !important;
+            gap: 8px;
+            align-items: center;
+            background: #fff;
+            border: 1px solid #d0d7de;
+            border-radius: 999px;
+            padding: 6px 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        #agentBar #sendAgentBtn {
+            background: #6f42c1; color: #fff; border: none; border-radius: 999px;
+            padding: 8px 16px; font-weight: 600; cursor: pointer; font-size: 13px;
+        }
+        #agentBar .agent-aux {
+            font-size: 13px; padding: 6px 10px;
+            border: 1px solid #d0d7de; background: #f6f8fa;
+            border-radius: 999px; cursor: pointer;
+        }
+    </style>
+    <script src="/js/msal-auth.js"></script>
+    <script src="/js/agent-working-set.js"></script>
+</head>
+
+<body>
+    <header>
+        <h1>Top Bugs by Priority <a style="color:#b4d6fa;font-size:13px;text-decoration:none;margin-left:20px;" href="/top-feedback.html">View Feedback Tickets →</a>
+            <span id="userInfo" style="float:right;font-size:12px;color:#b4d6fa;"></span>
+        </h1>
+    </header>
+    <div class="controls">
+        <label for="area">Area Path:</label>
+        <select id="area">
+            <option value="">Loading...</option>
+        </select>
+        <label for="assignee">Assigned To:</label>
+        <select id="assignee">
+            <option value="">All</option>
+        </select>
+        <button id="loadBtn">Load Bugs</button>
+        <div class="separator"></div>
+        <label for="mentionSearch">Search mentions:</label>
+        <input type="text" id="mentionSearch" placeholder="e.g. @Julio Damasceno">
+        <button id="searchBtn" class="secondary">Search</button>
+    </div>
+
+    <div class="content" id="content">
+        <p class="message">Select an area path and click <strong>Load Bugs</strong>, or search for mentions in comments.</p>
+    </div>
+
+    <!-- Floating Send-to-Agent action. Last child of <body> so no ancestor
+         transform / filter can break its fixed positioning. -->
+    <div id="agentBar">
+        <span id="agentBarStatus" style="font-size:13px;color:#6f42c1;font-weight:600;display:none;"></span>
+        <button id="agentSelectAllBtn" class="agent-aux" style="display:none;">Select all</button>
+        <button id="agentCancelBtn" class="agent-aux" style="display:none;">Cancel</button>
+        <button id="sendAgentBtn">🤖 Send to Agent</button>
+    </div>
+
+    <script>
+        var ORG = 'devdiv';
+        var PROJECT = 'devdiv';
+        var COL_COUNT = 8;
+        var currentOpenId = null;
+        var currentBugs = [];        // most recently rendered list
+        var agentSelecting = false;  // selection-mode flag
+        var agentPicked = {};        // id -> bug item
+
+        document.getElementById('loadBtn').addEventListener('click', loadBugs);
+        document.getElementById('searchBtn').addEventListener('click', searchMentions);
+        document.getElementById('mentionSearch').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') searchMentions();
+        });
+        document.getElementById('area').addEventListener('change', loadAssignees);
+        document.getElementById('sendAgentBtn').addEventListener('click', onSendAgentClick);
+        document.getElementById('agentCancelBtn').addEventListener('click', function () { setSelectionMode(false); });
+        document.getElementById('agentSelectAllBtn').addEventListener('click', function () {
+            (currentBugs || []).forEach(function (b) { agentPicked[b.id] = b; });
+            applyPickedClasses();
+            updateAgentBar();
+        });
+        loadAreaPaths();
+
+        // Row click router: in selection mode toggles selection,
+        // otherwise behaves like the original click-to-expand.
+        function rowClick(id) {
+            if (agentSelecting) {
+                if (agentPicked[id]) {
+                    delete agentPicked[id];
+                } else {
+                    var bug = (currentBugs || []).find(function (b) { return b.id === id; });
+                    if (bug) agentPicked[id] = bug;
+                }
+                applyPickedClasses();
+                updateAgentBar();
+                return;
+            }
+            toggleDetails(id);
+        }
+
+        function setSelectionMode(on) {
+            agentSelecting = on;
+            document.body.classList.toggle('agent-selecting', on);
+            document.getElementById('agentSelectAllBtn').style.display = on ? '' : 'none';
+            document.getElementById('agentCancelBtn').style.display = on ? '' : 'none';
+            document.getElementById('agentBarStatus').style.display = on ? '' : 'none';
+
+            if (!on) {
+                agentPicked = {};
+                applyPickedClasses();
+            } else {
+                // Close any expanded details so picking is unambiguous.
+                document.querySelectorAll('.details-row').forEach(function (r) { r.remove(); });
+                document.querySelectorAll('tr.selected').forEach(function (r) { r.classList.remove('selected'); });
+                currentOpenId = null;
+            }
+            updateAgentBar();
+        }
+
+        function applyPickedClasses() {
+            document.querySelectorAll('tr.clickable').forEach(function (tr) {
+                var id = parseInt(tr.dataset.id, 10);
+                tr.classList.toggle('agent-picked', !!agentPicked[id]);
+            });
+        }
+
+        function updateAgentBar() {
+            var btn = document.getElementById('sendAgentBtn');
+            var count = Object.keys(agentPicked).length;
+            if (!agentSelecting) {
+                btn.textContent = '🤖 Send to Agent';
+                document.getElementById('agentBarStatus').textContent = '';
+                return;
+            }
+            document.getElementById('agentBarStatus').textContent =
+                count ? (count + ' selected') : 'click rows to pick';
+            btn.textContent = count ? '🤖 Send ' + count + ' to Agent' : '🤖 Done';
+        }
+
+        function onSendAgentClick() {
+            if (!agentSelecting) {
+                if (!currentBugs || !currentBugs.length) {
+                    alert('Load some bugs first, then click Send to Agent.');
+                    return;
+                }
+                setSelectionMode(true);
+                return;
+            }
+            var picked = Object.values(agentPicked);
+            if (!picked.length) {
+                setSelectionMode(false);
+                return;
+            }
+            var projected = picked.map(function (b) { return AgentWorkingSet.projectWorkItem(b, 'Bug'); }).filter(Boolean);
+            AgentWorkingSet.add(projected);
+            window.location.href = '/agent.html';
+        }
+
+        async function loadAreaPaths() {
+            var areaSelect = document.getElementById('area');
+            try {
+                var response = await authFetch('/api/parameters/area-paths');
+                if (!response.ok) throw new Error('Failed to load area paths');
+                var paths = await response.json();
+                areaSelect.innerHTML = '';
+                paths.forEach(function (p) {
+                    var opt = document.createElement('option');
+                    opt.value = p.name;
+                    opt.textContent = p.name;
+                    areaSelect.appendChild(opt);
+                });
+            } catch (err) {
+                areaSelect.innerHTML = '<option value="">Error loading</option>';
+                console.error('Failed to load area paths:', err);
+            }
+            loadAssignees();
+        }
+
+        async function loadAssignees() {
+            var area = document.getElementById('area').value;
+            var assigneeSelect = document.getElementById('assignee');
+            assigneeSelect.innerHTML = '<option value="">Loading...</option>';
+
+            try {
+                var response = await authFetch('/api/assignees?projectArea=' + encodeURIComponent(area));
+                if (!response.ok) throw new Error('Failed to load assignees');
+
+                var assignees = await response.json();
+                assigneeSelect.innerHTML = '<option value="">All</option>';
+                assigneeSelect.innerHTML += '<option value="__none__">Unassigned</option>';
+                assignees.forEach(function (name) {
+                    var opt = document.createElement('option');
+                    opt.value = name;
+                    opt.textContent = name;
+                    assigneeSelect.appendChild(opt);
+                });
+            } catch (err) {
+                assigneeSelect.innerHTML = '<option value="">All</option>';
+                console.error('Failed to load assignees:', err);
+            }
+        }
+
+        async function searchMentions() {
+            var area = document.getElementById('area').value;
+            var searchText = document.getElementById('mentionSearch').value.trim();
+            var content = document.getElementById('content');
+
+            if (!searchText) {
+                content.innerHTML = '<p class="message error">Please enter a search term.</p>';
+                return;
+            }
+
+            content.innerHTML = '<p class="message">Searching for "' + searchText + '" in comments... This may take a moment.</p>';
+            currentOpenId = null;
+
+            try {
+                var url = '/api/search-mentions?projectArea=' + encodeURIComponent(area) + '&searchText=' + encodeURIComponent(searchText);
+                var response = await authFetch(url);
+                if (!response.ok) {
+                    var errorText = await response.text();
+                    throw new Error(errorText || response.statusText);
+                }
+
+                var bugs = await response.json();
+                if (!bugs || bugs.length === 0) {
+                    content.innerHTML = '<p class="message">No bugs found mentioning "' + searchText + '".</p>';
+                    return;
+                }
+
+                renderBugsTable(bugs, '<strong>' + bugs.length + '</strong> bug(s) found mentioning "<strong>' + searchText + '</strong>"');
+            } catch (err) {
+                content.innerHTML = '<p class="message error">Error: ' + err.message + '</p>';
+            }
+        }
+
+        async function loadBugs() {
+            var area = document.getElementById('area').value;
+            var assignee = document.getElementById('assignee').value;
+            var content = document.getElementById('content');
+            content.innerHTML = '<p class="message">Loading...</p>';
+            currentOpenId = null;
+
+            try {
+                var url = '/api/top-bugs?projectArea=' + encodeURIComponent(area);
+                if (assignee) url += '&assignedTo=' + encodeURIComponent(assignee);
+
+                var response = await authFetch(url);
+                if (!response.ok) {
+                    var errorText = await response.text();
+                    throw new Error(errorText || response.statusText);
+                }
+
+                var bugs = await response.json();
+                if (!bugs || bugs.length === 0) {
+                    content.innerHTML = '<p class="message">No bugs found for this area.</p>';
+                    return;
+                }
+
+                renderBugsTable(bugs, null);
+            } catch (err) {
+                content.innerHTML = '<p class="message error">Error: ' + err.message + '</p>';
+            }
+        }
+
+        function renderBugsTable(bugs, infoMessage) {
+            var content = document.getElementById('content');
+            var html = '';
+
+            if (infoMessage) {
+                html += '<div class="result-info">' + infoMessage + '</div>';
+            }
+
+            html += '<table id="bugsTable"><thead><tr>';
+            html += '<th>#</th><th>ID</th><th>Priority</th><th>Title</th><th>Assigned To</th><th>State</th><th>Area Path</th><th>Created</th>';
+            html += '</tr></thead><tbody>';
+
+            bugs.forEach(function (bug, index) {
+                var priority = bug.fields.priority || '-';
+                var created = bug.fields.createdDate ? new Date(bug.fields.createdDate).toLocaleDateString() : '-';
+                var assignedName = bug.fields.assignedTo ? bug.fields.assignedTo.displayName : 'Unassigned';
+
+                html += '<tr class="clickable" id="row-' + bug.id + '" data-id="' + bug.id + '" onclick="rowClick(' + bug.id + ')">';
+                html += '<td>' + (index + 1) + '</td>';
+                html += '<td>' + bug.id + '</td>';
+                html += '<td><span class="priority p' + priority + '">' + priority + '</span></td>';
+                html += '<td>' + (bug.fields.title || '') + '</td>';
+                html += '<td>' + assignedName + '</td>';
+                html += '<td>' + (bug.fields.state || '') + '</td>';
+                html += '<td>' + (bug.fields.areaPath || '') + '</td>';
+                html += '<td>' + created + '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            content.innerHTML = html;
+
+            currentBugs = bugs.slice();
+            // Re-apply any existing visual selection (e.g. user came back from another search).
+            applyPickedClasses();
+        }
+
+        async function toggleDetails(bugId) {
+            var allDetails = document.querySelectorAll('.details-row');
+            allDetails.forEach(function (row) { row.remove(); });
+            document.querySelectorAll('tr.selected').forEach(function (row) { row.classList.remove('selected'); });
+
+            if (currentOpenId === bugId) {
+                currentOpenId = null;
+                return;
+            }
+
+            currentOpenId = bugId;
+            var sourceRow = document.getElementById('row-' + bugId);
+            sourceRow.classList.add('selected');
+
+            var detailsRow = document.createElement('tr');
+            detailsRow.id = 'details-' + bugId;
+            detailsRow.className = 'details-row';
+            detailsRow.innerHTML = '<td colspan="' + COL_COUNT + '"><div class="details-pane"><p class="loading-details">Loading details...</p></div></td>';
+            sourceRow.after(detailsRow);
+
+            try {
+                var response = await authFetch('/api/work-item-details/' + bugId);
+                if (!response.ok) throw new Error('Failed to load details');
+                var details = await response.json();
+
+                var wiUrl = 'https://dev.azure.com/' + ORG + '/' + PROJECT + '/_workitems/edit/' + bugId;
+                var stateClass = getStateClass(details.state);
+                var hasCustomerComments = details.customerComments && details.customerComments.length > 0;
+
+                var html = '<div class="details-pane">';
+                html += '<div class="details-header">';
+                html += '<h3>Work Item #' + bugId + '</h3>';
+                html += '<div>';
+                html += '<button class="ai-btn" id="ai-btn-' + bugId + '" onclick="event.stopPropagation(); summarizeBug(' + bugId + ')">&#x2728; AI Summary</button> &nbsp; ';
+                html += '<button class="reply-btn" id="reply-btn-' + bugId + '" onclick="event.stopPropagation(); draftResponse(' + bugId + ')">&#x1F4AC; Draft Reply</button> &nbsp; ';
+                html += '<a href="' + wiUrl + '" target="_blank">Open in Azure DevOps &#x2197;</a> &nbsp; ';
+                html += '<button class="close-btn" onclick="event.stopPropagation(); toggleDetails(' + bugId + ')">Close</button>';
+                html += '</div></div>';
+
+                html += '<div id="ai-summary-' + bugId + '"></div>';
+                html += '<div id="ai-reply-' + bugId + '"></div>';
+
+                html += '<div class="meta">';
+                html += '<div class="meta-item"><strong>State:</strong> <span class="state-badge ' + stateClass + '">' + (details.state || '-') + '</span></div>';
+                if (details.createdBy) html += '<div class="meta-item"><strong>Created By:</strong> <span>' + details.createdBy + '</span></div>';
+                if (details.postId) html += '<div class="meta-item"><strong>Post ID:</strong> <span>' + details.postId + '</span></div>';
+                html += '</div>';
+
+                html += '<div class="section"><h4>Description</h4>';
+                html += '<div class="description-content">' + (details.description || '<em>No description</em>') + '</div>';
+                html += '</div>';
+
+                if (details.comments && details.comments.length > 0) {
+                    html += '<div class="section"><h4>Comments (' + details.comments.length + ')</h4>';
+                    html += '<ul class="comment-list">';
+                    details.comments.forEach(function (c) {
+                        var date = c.modifiedDate ? new Date(c.modifiedDate).toLocaleString() : '';
+                        html += '<li class="comment-item">';
+                        html += '<div class="comment-meta">' + date + '</div>';
+                        html += '<div class="comment-text">' + (c.text || '') + '</div>';
+                        html += '</li>';
+                    });
+                    html += '</ul></div>';
+                }
+
+                if (hasCustomerComments) {
+                    html += '<div class="section"><h4>Customer Comments (' + details.customerComments.length + ')</h4>';
+                    html += '<ul class="comment-list">';
+                    details.customerComments.forEach(function (c) {
+                        html += '<li class="comment-item">';
+                        if (c.author) html += '<div class="comment-meta">' + c.author + '</div>';
+                        html += '<div class="comment-text">' + (c.text || c.description || '') + '</div>';
+                        html += '</li>';
+                    });
+                    html += '</ul></div>';
+                }
+
+                // Scaffold section
+                html += '<div class="scaffold-section">';
+                html += '<h4>&#x1F4E6; Generate Repro / Fix Project</h4>';
+                html += '<textarea id="scaffold-desc-' + bugId + '" placeholder="Describe the project you want to generate (e.g., minimal repro for this bug, a fix prototype, etc.)"></textarea>';
+                html += '<button class="scaffold-btn" id="scaffold-btn-' + bugId + '" onclick="event.stopPropagation(); scaffoldProject(' + bugId + ')">&#x1F680; Generate &amp; Download .zip</button>';
+                html += '<div id="scaffold-result-' + bugId + '"></div>';
+                html += '</div>';
+
+                html += '</div>';
+                detailsRow.innerHTML = '<td colspan="' + COL_COUNT + '">' + html + '</td>';
+
+            } catch (err) {
+                detailsRow.innerHTML = '<td colspan="' + COL_COUNT + '"><div class="details-pane"><p class="error">Failed to load details: ' + err.message + '</p></div></td>';
+            }
+        }
+
+        async function summarizeBug(bugId) {
+            var btn = document.getElementById('ai-btn-' + bugId);
+            var container = document.getElementById('ai-summary-' + bugId);
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Summarizing...';
+            container.innerHTML = '<div class="ai-summary"><div class="ai-label">Generating summary...</div></div>';
+
+            try {
+                var response = await authFetch('/api/summarize/' + bugId);
+                if (!response.ok) throw new Error('Failed to get AI summary');
+                var data = await response.json();
+
+                container.innerHTML = '<div class="ai-summary"><div class="ai-label">&#x2728; AI Summary</div>' + data.summary + '</div>';
+                btn.textContent = '✅ Summarized';
+            } catch (err) {
+                container.innerHTML = '<div class="ai-summary" style="border-color:#d13438;background:#fde7e9;"><div class="ai-label" style="color:#d13438;">Error</div>' + err.message + '</div>';
+                btn.disabled = false;
+                btn.textContent = '✨ AI Summary';
+            }
+        }
+
+        async function draftResponse(bugId) {
+            var btn = document.getElementById('reply-btn-' + bugId);
+            var container = document.getElementById('ai-reply-' + bugId);
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Drafting...';
+            container.innerHTML = '<div class="ai-reply"><div class="ai-label">Generating customer response...</div></div>';
+
+            try {
+                var response = await authFetch('/api/draft-response/' + bugId);
+                if (!response.ok) throw new Error('Failed to draft response');
+                var data = await response.json();
+
+                container.innerHTML = '<div class="ai-reply">' +
+                    '<div class="ai-label">&#x1F4AC; Draft Customer Response <button class="copy-btn" onclick="event.stopPropagation(); copyReply(' + bugId + ')">&#x1F4CB; Copy</button></div>' +
+                    '<pre id="reply-text-' + bugId + '">' + data.response + '</pre>' +
+                    '</div>';
+                btn.textContent = '✅ Draft Ready';
+            } catch (err) {
+                container.innerHTML = '<div class="ai-reply" style="border-color:#d13438;background:#fde7e9;"><div class="ai-label" style="color:#d13438;">Error</div>' + err.message + '</div>';
+                btn.disabled = false;
+                btn.textContent = '💬 Draft Reply';
+            }
+        }
+
+        function copyReply(bugId) {
+            var text = document.getElementById('reply-text-' + bugId).textContent;
+            navigator.clipboard.writeText(text).then(function () {
+                var btn = event.target;
+                btn.textContent = '✅ Copied!';
+                setTimeout(function () { btn.innerHTML = '&#x1F4CB; Copy'; }, 2000);
+            });
+        }
+
+        async function scaffoldProject(bugId) {
+            var btn = document.getElementById('scaffold-btn-' + bugId);
+            var desc = document.getElementById('scaffold-desc-' + bugId).value.trim();
+            var result = document.getElementById('scaffold-result-' + bugId);
+
+            if (!desc) {
+                result.innerHTML = '<div class="scaffold-error">Please enter a project description.</div>';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Generating...';
+            result.innerHTML = '';
+
+            try {
+                var response = await authFetch('/api/scaffold/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ instructions: desc, projectName: 'WI-' + bugId + '-project' })
+                });
+
+                if (!response.ok) {
+                    var errText = await response.text();
+                    throw new Error(errText || 'Generation failed');
+                }
+
+                var blob = await response.blob();
+                var url = window.URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'WI-' + bugId + '-project.zip';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+
+                result.innerHTML = '<div class="scaffold-success">&#x2705; Project downloaded successfully!</div>';
+                btn.textContent = '✅ Downloaded';
+            } catch (err) {
+                result.innerHTML = '<div class="scaffold-error">Failed to generate project: ' + err.message + '</div>';
+                btn.disabled = false;
+                btn.textContent = '🚀 Generate & Download .zip';
+            }
+        }
+
+        function getStateClass(state) {
+            if (!state) return 'state-default';
+            switch (state.toLowerCase()) {
+                case 'active':
+                    return 'state-active';
+                case 'new':
+                    return 'state-new';
+                case 'resolved':
+                    return 'state-resolved';
+                default:
+                    return 'state-default';
+            }
+        }
+
+        renderUserInfo('userInfo', { linkColor: '#b4d6fa' });
+    </script>
+</body>
+
+</html>

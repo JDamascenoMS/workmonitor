@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Feedback Insights</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        header {
+            background: #107c10;
+            color: #fff;
+            padding: 20px 40px;
+        }
+        header h1 { font-size: 1.5rem; font-weight: 600; }
+        header .nav-links { margin-top: 4px; }
+        header .nav-link {
+            color: #c8e6c9; font-size: 13px; text-decoration: none; margin-right: 20px;
+        }
+        header .nav-link:hover { color: #fff; text-decoration: underline; }
+
+        .hero {
+            text-align: center;
+            padding: 40px 20px 20px;
+        }
+        .hero h2 { font-size: 1.8rem; color: #323130; font-weight: 600; }
+        .hero p { color: #605e5c; margin-top: 8px; font-size: 1rem; }
+
+        .cards {
+            display: flex;
+            gap: 32px;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 24px 40px 60px;
+        }
+        .card {
+            background: #fff;
+            border-radius: 10px;
+            width: 320px;
+            padding: 32px 28px;
+            text-decoration: none;
+            color: inherit;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-top: 4px solid transparent;
+            transition: transform .15s ease, box-shadow .15s ease;
+            display: flex; flex-direction: column; gap: 14px;
+        }
+        .card:hover { transform: translateY(-4px); box-shadow: 0 6px 20px rgba(0,0,0,0.14); }
+        .card.themes    { border-top-color: #107c10; }
+        .card.relevant  { border-top-color: #d83b01; }
+        .card .icon { font-size: 2.4rem; }
+        .card h3 { font-size: 1.25rem; font-weight: 600; color: #323130; }
+        .card p  { font-size: .92rem; color: #605e5c; line-height: 1.5; }
+        .card .arrow { margin-top: auto; font-size: .9rem; font-weight: 600; }
+        .card.themes   .arrow { color: #107c10; }
+        .card.relevant .arrow { color: #d83b01; }
+    </style>
+    <script src="/js/msal-auth.js"></script>
+</head>
+<body>
+    <header>
+        <h1>📊 Feedback Insights</h1>
+        <div class="nav-links">
+            <a href="/" class="nav-link">← Home</a>
+            <a href="/top-feedback.html" class="nav-link">Feedback Tickets</a>
+            <a href="/top-bugs.html" class="nav-link">Bugs</a>
+            <span id="userInfo" style="font-size:12px;color:#c8e6c9;float:right;"></span>
+        </div>
+    </header>
+
+    <div class="hero">
+        <h2>Choose an analysis</h2>
+        <p>Pick how you want to look at your feedback signals.</p>
+    </div>
+
+    <div class="cards">
+        <a href="/feedback-dashboard.html" class="card themes">
+            <div class="icon">🧩</div>
+            <h3>Themes Analysis</h3>
+            <p>Group feedback into common themes with AI and drill into the work items behind each pattern.</p>
+            <span class="arrow">Open Themes →</span>
+        </a>
+
+        <a href="/most-relevant.html" class="card relevant">
+            <div class="icon">⭐</div>
+            <h3>Most Relevant Tickets</h3>
+            <p>The top 5 tickets ranked by score, theme weight, and the number of similar tickets in the last month.</p>
+            <span class="arrow">Open Most Relevant →</span>
+        </a>
+    </div>
+
+    <script>
+        renderUserInfo('userInfo', { linkColor: '#c8e6c9' });
+    </script>
+</body>
+</html>

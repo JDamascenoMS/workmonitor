@@ -1,0 +1,1077 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Top Feedback Tickets by Priority</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+        }
+
+        header {
+            background: #8764b8;
+            color: #fff;
+            padding: 20px 40px;
+        }
+
+            header h1 {
+                font-size: 1.5rem;
+                font-weight: 600;
+            }
+
+            header .nav-link {
+                color: #e0d4f5;
+                font-size: 13px;
+                text-decoration: none;
+                margin-left: 20px;
+            }
+
+                header .nav-link:hover {
+                    color: #fff;
+                    text-decoration: underline;
+                }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding: 20px 40px;
+            background: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            flex-wrap: wrap;
+        }
+
+            .controls label {
+                font-weight: 600;
+            }
+
+            .controls select, .controls button, .controls input[type="text"] {
+                padding: 8px 16px;
+                font-size: 14px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+            }
+
+            .controls button {
+                background: #8764b8;
+                color: #fff;
+                border: none;
+                cursor: pointer;
+                font-weight: 600;
+            }
+
+                .controls button:hover {
+                    background: #7352a8;
+                }
+
+                .controls button.secondary {
+                    background: #605e5c;
+                }
+
+                    .controls button.secondary:hover {
+                        background: #484644;
+                    }
+
+            .controls select {
+                max-width: 280px;
+            }
+
+            .controls input[type="text"] {
+                width: 220px;
+            }
+
+            .controls .separator {
+                width: 1px;
+                height: 30px;
+                background: #e0e0e0;
+                margin: 0 4px;
+            }
+
+        .content {
+            padding: 20px 40px;
+        }
+
+        .message {
+            padding: 20px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .error {
+            color: #d13438;
+            font-style: normal;
+            font-weight: 600;
+        }
+
+        .result-info {
+            padding: 8px 0 12px 0;
+            font-size: 13px;
+            color: #605e5c;
+        }
+
+            .result-info strong {
+                color: #8764b8;
+            }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+        }
+
+        th {
+            background: #8764b8;
+            color: #fff;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 10px 16px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr.clickable {
+            cursor: pointer;
+        }
+
+            tr.clickable:hover td {
+                background: #f3edf7;
+            }
+
+            tr.clickable.selected td {
+                background: #e8ddf0;
+                border-bottom-color: #8764b8;
+            }
+
+        .priority {
+            font-weight: 700;
+            text-align: center;
+            border-radius: 4px;
+            padding: 2px 8px;
+            display: inline-block;
+            min-width: 24px;
+        }
+
+        .p1 {
+            background: #fde7e9;
+            color: #d13438;
+        }
+
+        .p2 {
+            background: #fff4ce;
+            color: #ca5010;
+        }
+
+        .p3 {
+            background: #edebe9;
+            color: #605e5c;
+        }
+
+        .p4 {
+            background: #f3f2f1;
+            color: #8a8886;
+        }
+
+        .details-row td {
+            padding: 0;
+            background: #f8f9fa;
+            border-bottom: 2px solid #8764b8;
+        }
+
+        .details-pane {
+            padding: 20px 24px;
+        }
+
+            .details-pane .details-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 16px;
+            }
+
+                .details-pane .details-header h3 {
+                    font-size: 1.1rem;
+                    color: #8764b8;
+                }
+
+                .details-pane .details-header a {
+                    font-size: 13px;
+                    color: #8764b8;
+                    text-decoration: none;
+                    font-weight: 600;
+                }
+
+                    .details-pane .details-header a:hover {
+                        text-decoration: underline;
+                    }
+
+            .details-pane .meta {
+                display: flex;
+                gap: 24px;
+                margin-bottom: 16px;
+                flex-wrap: wrap;
+            }
+
+            .details-pane .meta-item {
+                font-size: 13px;
+            }
+
+                .details-pane .meta-item strong {
+                    color: #333;
+                }
+
+                .details-pane .meta-item span {
+                    color: #666;
+                }
+
+            .details-pane .section {
+                margin-bottom: 16px;
+            }
+
+                .details-pane .section h4 {
+                    font-size: 0.9rem;
+                    color: #444;
+                    margin-bottom: 8px;
+                    border-bottom: 1px solid #e0e0e0;
+                    padding-bottom: 4px;
+                }
+
+            .details-pane .description-content {
+                font-size: 13px;
+                line-height: 1.6;
+                color: #444;
+                max-height: 200px;
+                overflow-y: auto;
+                padding: 8px;
+                background: #fff;
+                border: 1px solid #e8e8e8;
+                border-radius: 4px;
+            }
+
+            .details-pane .comment-list {
+                list-style: none;
+                max-height: 300px;
+                overflow-y: auto;
+            }
+
+            .details-pane .comment-item {
+                padding: 10px 12px;
+                margin-bottom: 8px;
+                background: #fff;
+                border: 1px solid #e8e8e8;
+                border-radius: 4px;
+                font-size: 13px;
+                line-height: 1.5;
+            }
+
+                .details-pane .comment-item .comment-meta {
+                    font-size: 11px;
+                    color: #888;
+                    margin-bottom: 4px;
+                }
+
+                .details-pane .comment-item .comment-text {
+                    color: #444;
+                }
+
+            .details-pane .loading-details {
+                color: #888;
+                font-style: italic;
+            }
+
+        .state-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .state-active {
+            background: #dff6dd;
+            color: #107c10;
+        }
+
+        .state-new {
+            background: #e0efff;
+            color: #0078d4;
+        }
+
+        .state-resolved {
+            background: #fff4ce;
+            color: #ca5010;
+        }
+
+        .state-default {
+            background: #f3f2f1;
+            color: #605e5c;
+        }
+
+        .close-btn {
+            background: none;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 4px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #666;
+        }
+
+            .close-btn:hover {
+                background: #f0f0f0;
+            }
+
+        .ai-btn {
+            background: linear-gradient(135deg, #6b3fa0, #8764b8);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 14px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+            .ai-btn:hover {
+                opacity: 0.9;
+            }
+
+            .ai-btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+        .reply-btn {
+            background: linear-gradient(135deg, #107c10, #8764b8);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 14px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+            .reply-btn:hover {
+                opacity: 0.9;
+            }
+
+            .reply-btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+        .ai-summary {
+            margin-top: 12px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #f3edf7, #e8f0fe);
+            border: 1px solid #d0c4e0;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #333;
+        }
+
+            .ai-summary .ai-label {
+                font-size: 11px;
+                font-weight: 700;
+                color: #6b3fa0;
+                margin-bottom: 6px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+        .ai-reply {
+            margin-top: 12px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #e8f5e9, #e8f0fe);
+            border: 1px solid #a5d6a7;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #333;
+        }
+
+            .ai-reply .ai-label {
+                font-size: 11px;
+                font-weight: 700;
+                color: #107c10;
+                margin-bottom: 6px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .ai-reply pre {
+                white-space: pre-wrap;
+                font-family: 'Segoe UI', sans-serif;
+                font-size: 13px;
+                margin: 0;
+            }
+
+        .copy-btn {
+            background: #8764b8;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 12px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            float: right;
+        }
+
+            .copy-btn:hover {
+                background: #7352a8;
+            }
+
+        .bug-prob-btn {
+            background: linear-gradient(135deg, #ca5010, #8764b8);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 14px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+            .bug-prob-btn:hover {
+                opacity: 0.9;
+            }
+
+            .bug-prob-btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+        .bug-prob-result {
+            margin-top: 12px;
+            padding: 14px 18px;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.6;
+            border: 1px solid #d0c4e0;
+        }
+
+        .bug-prob-result .prob-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .bug-prob-result .prob-meter {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .bug-prob-result .prob-meter-bar {
+            flex: 1;
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            overflow: hidden;
+            max-width: 200px;
+        }
+
+        .bug-prob-result .prob-meter-fill {
+            height: 100%;
+            border-radius: 5px;
+            transition: width 0.5s ease;
+        }
+
+        .bug-prob-result .prob-pct {
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+
+        .bug-prob-result .prob-confidence {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #f3f2f1;
+            color: #605e5c;
+        }
+
+        .bug-prob-result .prob-reasoning {
+            font-size: 13px;
+            color: #444;
+        }
+
+        /* Agent selection mode visuals */
+        body.agent-selecting tr.clickable { cursor: copy; }
+        body.agent-selecting tr.agent-picked { background: #ede1ff !important; }
+        body.agent-selecting tr.agent-picked td:first-child::before {
+            content: "✓"; color: #6f42c1; font-weight: 700; margin-right: 4px;
+        }
+
+        #agentBar {
+            position: fixed !important;
+            right: 20px !important;
+            bottom: 20px !important;
+            z-index: 2147483000 !important;     /* on top of everything */
+            display: flex !important;
+            gap: 8px;
+            align-items: center;
+            background: #fff;
+            border: 1px solid #d0d7de;
+            border-radius: 999px;
+            padding: 6px 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        #agentBar #sendAgentBtn {
+            background: #6f42c1; color: #fff; border: none; border-radius: 999px;
+            padding: 8px 16px; font-weight: 600; cursor: pointer; font-size: 13px;
+        }
+        #agentBar .agent-aux {
+            font-size: 13px; padding: 6px 10px;
+            border: 1px solid #d0d7de; background: #f6f8fa;
+            border-radius: 999px; cursor: pointer;
+        }
+    </style>
+    <script src="/js/msal-auth.js"></script>
+    <script src="/js/agent-working-set.js"></script>
+</head>
+
+<body>
+    <header>
+        <h1>Feedback Tickets by Priority <a class="nav-link" href="/top-bugs.html">← Back to Bugs</a></h1>
+        <span id="userInfo" style="font-size:12px;color:#e0d4f5;"></span>
+    </header>
+    <div class="controls">
+        <label for="area">Area Path:</label>
+        <select id="area">
+            <option value="">Loading...</option>
+        </select>
+        <label for="assignee">Assigned To:</label>
+        <select id="assignee">
+            <option value="">All</option>
+        </select>
+        <button id="loadBtn">Load Feedback</button>
+        <div class="separator"></div>
+        <label for="mentionSearch">Search mentions:</label>
+        <input type="text" id="mentionSearch" placeholder="e.g. @Julio Damasceno">
+        <button id="searchBtn" class="secondary">Search</button>
+        <div class="separator"></div>
+        <label for="savedQuery">Saved Query:</label>
+        <select id="savedQuery">
+            <option value="">-- none --</option>
+        </select>
+        <button id="queryBtn" class="secondary">Get Query</button>
+    </div>
+
+    <div class="content" id="content">
+        <p class="message">Select an area path and click <strong>Load Feedback</strong>, or search for mentions in comments.</p>
+    </div>
+
+    <!-- Floating Send-to-Agent action. Last child of <body> so no ancestor
+         transform / filter can break its fixed positioning. -->
+    <div id="agentBar">
+        <span id="agentBarStatus" style="font-size:13px;color:#6f42c1;font-weight:600;display:none;"></span>
+        <button id="agentSelectAllBtn" class="agent-aux" style="display:none;">Select all on page</button>
+        <button id="agentCancelBtn" class="agent-aux" style="display:none;">Cancel</button>
+        <button id="sendAgentBtn">🤖 Send to Agent</button>
+    </div>
+
+    <script>
+        var ORG = 'devdiv';
+        var PROJECT = 'devdiv';
+        var COL_COUNT = 8;
+        var WI_TYPE = 'FeedbackTicket';
+        var PAGE_SIZE = 20;
+        var currentOpenId = null;
+        var allItems = [];
+        var currentPage = 1;
+        var agentSelecting = false;
+        var agentPicked = {};
+
+        document.getElementById('loadBtn').addEventListener('click', loadItems);
+        document.getElementById('searchBtn').addEventListener('click', searchMentions);
+        document.getElementById('queryBtn').addEventListener('click', loadFromQuery);
+        document.getElementById('mentionSearch').addEventListener('keydown', function (e) { if (e.key === 'Enter') searchMentions(); });
+        document.getElementById('area').addEventListener('change', loadAssignees);
+        document.getElementById('sendAgentBtn').addEventListener('click', onSendAgentClick);
+        document.getElementById('agentCancelBtn').addEventListener('click', function () { setSelectionMode(false); });
+        document.getElementById('agentSelectAllBtn').addEventListener('click', function () {
+            // "all on page" = the rows currently visible (paginated slice).
+            var totalPages = Math.ceil(allItems.length / PAGE_SIZE);
+            var start = (currentPage - 1) * PAGE_SIZE;
+            var pageItems = allItems.slice(start, start + PAGE_SIZE);
+            pageItems.forEach(function (i) { agentPicked[i.id] = i; });
+            applyPickedClasses();
+            updateAgentBar();
+        });
+        loadAreaPaths();
+        loadSavedQueries();
+
+        function rowClick(id) {
+            if (agentSelecting) {
+                if (agentPicked[id]) {
+                    delete agentPicked[id];
+                } else {
+                    var item = (allItems || []).find(function (i) { return i.id === id; });
+                    if (item) agentPicked[id] = item;
+                }
+                applyPickedClasses();
+                updateAgentBar();
+                return;
+            }
+            toggleDetails(id);
+        }
+
+        function setSelectionMode(on) {
+            agentSelecting = on;
+            document.body.classList.toggle('agent-selecting', on);
+            document.getElementById('agentSelectAllBtn').style.display = on ? '' : 'none';
+            document.getElementById('agentCancelBtn').style.display = on ? '' : 'none';
+            document.getElementById('agentBarStatus').style.display = on ? '' : 'none';
+            if (!on) {
+                agentPicked = {};
+                applyPickedClasses();
+            } else {
+                document.querySelectorAll('.details-row').forEach(function (r) { r.remove(); });
+                document.querySelectorAll('tr.selected').forEach(function (r) { r.classList.remove('selected'); });
+                currentOpenId = null;
+            }
+            updateAgentBar();
+        }
+
+        function applyPickedClasses() {
+            document.querySelectorAll('tr.clickable').forEach(function (tr) {
+                var id = parseInt(tr.id.replace('row-', ''), 10);
+                tr.classList.toggle('agent-picked', !!agentPicked[id]);
+            });
+        }
+
+        function updateAgentBar() {
+            var btn = document.getElementById('sendAgentBtn');
+            var count = Object.keys(agentPicked).length;
+            if (!agentSelecting) {
+                btn.textContent = '🤖 Send to Agent';
+                document.getElementById('agentBarStatus').textContent = '';
+                return;
+            }
+            document.getElementById('agentBarStatus').textContent = count ? (count + ' selected') : 'click rows to pick';
+            btn.textContent = count ? '🤖 Send ' + count + ' to Agent' : '🤖 Done';
+        }
+
+        function onSendAgentClick() {
+            if (!agentSelecting) {
+                if (!allItems || !allItems.length) {
+                    alert('Load some items first, then click Send to Agent.');
+                    return;
+                }
+                setSelectionMode(true);
+                return;
+            }
+            var picked = Object.values(agentPicked);
+            if (!picked.length) {
+                setSelectionMode(false);
+                return;
+            }
+            var projected = picked.map(function (i) { return AgentWorkingSet.projectWorkItem(i, 'Feedback'); }).filter(Boolean);
+            AgentWorkingSet.add(projected);
+            window.location.href = '/agent.html';
+        }
+
+        async function loadSavedQueries() {
+            var select = document.getElementById('savedQuery');
+            try {
+                var response = await authFetch('/api/parameters/saved-queries');
+                if (!response.ok) throw new Error('Failed to load saved queries');
+                var queries = await response.json();
+                select.innerHTML = '<option value="">-- none --</option>';
+                queries.forEach(function (q) {
+                    var opt = document.createElement('option');
+                    opt.value = q.queryId;
+                    opt.textContent = q.name;
+                    select.appendChild(opt);
+                });
+            } catch (err) {
+                console.error('Failed to load saved queries:', err);
+            }
+        }
+
+        async function loadFromQuery() {
+            var queryId = document.getElementById('savedQuery').value;
+            var content = document.getElementById('content');
+            if (!queryId) {
+                content.innerHTML = '<p class="message error">Please select a saved query first.</p>';
+                return;
+            }
+            content.innerHTML = '<p class="message">Loading items from saved query...</p>';
+            currentOpenId = null;
+            try {
+                var response = await authFetch('/api/execute-query/' + encodeURIComponent(queryId));
+                if (!response.ok) throw new Error(await response.text() || response.statusText);
+                var items = await response.json();
+                if (!items || items.length === 0) {
+                    content.innerHTML = '<p class="message">No items returned by this query.</p>';
+                    return;
+                }
+                allItems = items;
+                currentPage = 1;
+                var queryName = document.getElementById('savedQuery').selectedOptions[0].textContent;
+                renderPage('<strong>' + items.length + '</strong> item(s) from saved query "<strong>' + queryName + '</strong>"');
+            } catch (err) {
+                content.innerHTML = '<p class="message error">Error: ' + err.message + '</p>';
+            }
+        }
+
+        async function loadAreaPaths() {
+            var areaSelect = document.getElementById('area');
+            try {
+                var response = await authFetch('/api/parameters/area-paths');
+                if (!response.ok) throw new Error('Failed to load area paths');
+                var paths = await response.json();
+                areaSelect.innerHTML = '';
+                paths.forEach(function (p) {
+                    var opt = document.createElement('option');
+                    opt.value = p.name;
+                    opt.textContent = p.name;
+                    areaSelect.appendChild(opt);
+                });
+            } catch (err) {
+                areaSelect.innerHTML = '<option value="">Error loading</option>';
+                console.error('Failed to load area paths:', err);
+            }
+            loadAssignees();
+        }
+
+        async function loadAssignees() {
+            var area = document.getElementById('area').value;
+            var assigneeSelect = document.getElementById('assignee');
+            assigneeSelect.innerHTML = '<option value="">Loading...</option>';
+            try {
+                var response = await authFetch('/api/assignees?projectArea=' + encodeURIComponent(area) + '&workItemType=' + encodeURIComponent(WI_TYPE));
+                if (!response.ok) throw new Error('Failed to load assignees');
+                var assignees = await response.json();
+                assigneeSelect.innerHTML = '<option value="">All</option>';
+                assigneeSelect.innerHTML += '<option value="__none__">Unassigned</option>';
+                assignees.forEach(function (name) {
+                    var opt = document.createElement('option');
+                    opt.value = name;
+                    opt.textContent = name;
+                    assigneeSelect.appendChild(opt);
+                });
+            } catch (err) {
+                assigneeSelect.innerHTML = '<option value="">All</option>';
+            }
+        }
+
+        async function searchMentions() {
+            var area = document.getElementById('area').value;
+            var searchText = document.getElementById('mentionSearch').value.trim();
+            var content = document.getElementById('content');
+            if (!searchText) { content.innerHTML = '<p class="message error">Please enter a search term.</p>'; return; }
+            content.innerHTML = '<p class="message">Searching for "' + searchText + '"... This may take a moment.</p>';
+            currentOpenId = null;
+            try {
+                var url = '/api/search-mentions?projectArea=' + encodeURIComponent(area) + '&searchText=' + encodeURIComponent(searchText) + '&workItemType=' + encodeURIComponent(WI_TYPE);
+                var response = await authFetch(url);
+                if (!response.ok) throw new Error(await response.text() || response.statusText);
+                var items = await response.json();
+                if (!items || items.length === 0) { content.innerHTML = '<p class="message">No feedback found mentioning "' + searchText + '".</p>'; return; }
+                allItems = items;
+                currentPage = 1;
+                renderPage('<strong>' + items.length + '</strong> ticket(s) mentioning "<strong>' + searchText + '</strong>"');
+            } catch (err) { content.innerHTML = '<p class="message error">Error: ' + err.message + '</p>'; }
+        }
+
+        async function loadItems() {
+            var area = document.getElementById('area').value;
+            var assignee = document.getElementById('assignee').value;
+            var content = document.getElementById('content');
+            content.innerHTML = '<p class="message">Loading...</p>';
+            currentOpenId = null;
+            try {
+                var url = '/api/top-feedback?projectArea=' + encodeURIComponent(area);
+                if (assignee) url += '&assignedTo=' + encodeURIComponent(assignee);
+                var response = await authFetch(url);
+                if (!response.ok) throw new Error(await response.text() || response.statusText);
+                var items = await response.json();
+                if (!items || items.length === 0) { content.innerHTML = '<p class="message">No feedback tickets found for this area.</p>'; return; }
+                allItems = items;
+                currentPage = 1;
+                renderPage(null);
+            } catch (err) { content.innerHTML = '<p class="message error">Error: ' + err.message + '</p>'; }
+        }
+
+        function renderPage(infoMessage) {
+            var totalPages = Math.ceil(allItems.length / PAGE_SIZE);
+            var start = (currentPage - 1) * PAGE_SIZE;
+            var pageItems = allItems.slice(start, start + PAGE_SIZE);
+
+            var content = document.getElementById('content');
+            var html = '';
+
+            if (infoMessage) html += '<div class="result-info">' + infoMessage + '</div>';
+
+            html += '<div class="result-info">Showing ' + (start + 1) + '–' + (start + pageItems.length) + ' of ' + allItems.length + ' tickets</div>';
+
+            html += '<table><thead><tr><th>#</th><th>ID</th><th>Priority</th><th>Title</th><th>Assigned To</th><th>State</th><th>Area Path</th><th>Created ↓</th></tr></thead><tbody>';
+            pageItems.forEach(function (item, index) {
+                var priority = item.fields.priority || '-';
+                var created = item.fields.createdDate ? new Date(item.fields.createdDate).toLocaleDateString() : '-';
+                var assignedName = item.fields.assignedTo ? item.fields.assignedTo.displayName : 'Unassigned';
+                html += '<tr class="clickable" id="row-' + item.id + '" data-id="' + item.id + '" onclick="rowClick(' + item.id + ')">';
+                html += '<td>' + (start + index + 1) + '</td><td>' + item.id + '</td>';
+                html += '<td><span class="priority p' + priority + '">' + priority + '</span></td>';
+                html += '<td>' + (item.fields.title || '') + '</td><td>' + assignedName + '</td>';
+                html += '<td>' + (item.fields.state || '') + '</td><td>' + (item.fields.areaPath || '') + '</td>';
+                html += '<td>' + created + '</td></tr>';
+            });
+            html += '</tbody></table>';
+
+            // Pagination controls
+            if (totalPages > 1) {
+                html += '<div style="display:flex;gap:8px;align-items:center;justify-content:center;padding:16px 0;">';
+                html += '<button style="padding:6px 14px;font-size:13px;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:' + (currentPage > 1 ? '#8764b8;color:#fff;border:none;' : '#f3f2f1;color:#aaa;cursor:not-allowed;') + '" onclick="goToPage(' + (currentPage - 1) + ')"' + (currentPage <= 1 ? ' disabled' : '') + '>← Prev</button>';
+                for (var p = 1; p <= totalPages; p++) {
+                    var isActive = p === currentPage;
+                    html += '<button style="padding:6px 12px;font-size:13px;border-radius:4px;cursor:pointer;font-weight:' + (isActive ? '700' : '400') + ';background:' + (isActive ? '#8764b8' : '#fff') + ';color:' + (isActive ? '#fff' : '#333') + ';border:1px solid ' + (isActive ? '#8764b8' : '#ccc') + ';" onclick="goToPage(' + p + ')">' + p + '</button>';
+                }
+                html += '<button style="padding:6px 14px;font-size:13px;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:' + (currentPage < totalPages ? '#8764b8;color:#fff;border:none;' : '#f3f2f1;color:#aaa;cursor:not-allowed;') + '" onclick="goToPage(' + (currentPage + 1) + ')"' + (currentPage >= totalPages ? ' disabled' : '') + '>Next →</button>';
+                html += '</div>';
+            }
+
+            content.innerHTML = html;
+            applyPickedClasses();
+        }
+
+        function goToPage(page) {
+            var totalPages = Math.ceil(allItems.length / PAGE_SIZE);
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            currentOpenId = null;
+            renderPage(null);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function toggleDetails(itemId) {
+            document.querySelectorAll('.details-row').forEach(function (r) { r.remove(); });
+            document.querySelectorAll('tr.selected').forEach(function (r) { r.classList.remove('selected'); });
+            if (currentOpenId === itemId) { currentOpenId = null; return; }
+            currentOpenId = itemId;
+            var sourceRow = document.getElementById('row-' + itemId);
+            sourceRow.classList.add('selected');
+            var detailsRow = document.createElement('tr');
+            detailsRow.id = 'details-' + itemId;
+            detailsRow.className = 'details-row';
+            detailsRow.innerHTML = '<td colspan="' + COL_COUNT + '"><div class="details-pane"><p class="loading-details">Loading details...</p></div></td>';
+            sourceRow.after(detailsRow);
+            try {
+                var response = await authFetch('/api/work-item-details/' + itemId);
+                if (!response.ok) throw new Error('Failed to load details');
+                var details = await response.json();
+                var wiUrl = 'https://dev.azure.com/' + ORG + '/' + PROJECT + '/_workitems/edit/' + itemId;
+                var stateClass = getStateClass(details.state);
+                var hasCustomerComments = details.customerComments && details.customerComments.length > 0;
+                var html = '<div class="details-pane"><div class="details-header"><h3>Feedback #' + itemId + '</h3><div>';
+                html += '<button class="ai-btn" id="ai-btn-' + itemId + '" onclick="event.stopPropagation(); summarize(' + itemId + ')">&#x2728; AI Summary</button> &nbsp; ';
+                html += '<button class="reply-btn" id="reply-btn-' + itemId + '" onclick="event.stopPropagation(); draftResponse(' + itemId + ')">&#x1F4AC; Draft Reply</button> &nbsp; ';
+                html += '<button class="bug-prob-btn" id="prob-btn-' + itemId + '" onclick="event.stopPropagation(); calcBugProbability(' + itemId + ')">&#x1F41B; Bug Probability</button> &nbsp; ';
+                html += '<a href="' + wiUrl + '" target="_blank">Open in Azure DevOps &#x2197;</a> &nbsp; ';
+                html += '<button class="close-btn" onclick="event.stopPropagation(); toggleDetails(' + itemId + ')">Close</button>';
+                html += '</div></div>';
+                html += '<div id="ai-summary-' + itemId + '"></div><div id="ai-reply-' + itemId + '"></div><div id="bug-prob-' + itemId + '"></div>';
+                html += '<div class="meta">';
+                html += '<div class="meta-item"><strong>State:</strong> <span class="state-badge ' + stateClass + '">' + (details.state || '-') + '</span></div>';
+                if (details.createdBy) html += '<div class="meta-item"><strong>Created By:</strong> <span>' + details.createdBy + '</span></div>';
+                if (details.postId) html += '<div class="meta-item"><strong>Post ID:</strong> <span>' + details.postId + '</span></div>';
+                html += '</div>';
+                html += '<div class="section"><h4>Description</h4><div class="description-content">' + (details.description || '<em>No description</em>') + '</div></div>';
+                if (details.comments && details.comments.length > 0) {
+                    html += '<div class="section"><h4>Comments (' + details.comments.length + ')</h4><ul class="comment-list">';
+                    details.comments.forEach(function (c) {
+                        html += '<li class="comment-item"><div class="comment-meta">' + (c.modifiedDate ? new Date(c.modifiedDate).toLocaleString() : '') + '</div><div class="comment-text">' + (c.text || '') + '</div></li>';
+                    });
+                    html += '</ul></div>';
+                }
+                if (hasCustomerComments) {
+                    html += '<div class="section"><h4>Customer Comments (' + details.customerComments.length + ')</h4><ul class="comment-list">';
+                    details.customerComments.forEach(function (c) {
+                        html += '<li class="comment-item">';
+                        if (c.author) html += '<div class="comment-meta">' + c.author + '</div>';
+                        html += '<div class="comment-text">' + (c.text || c.description || '') + '</div></li>';
+                    });
+                    html += '</ul></div>';
+                }
+
+                // Scaffold section
+                html += '<div class="scaffold-section">';
+                html += '<h4>&#x1F4E6; Generate Repro / Fix Project</h4>';
+                html += '<textarea id="scaffold-desc-' + itemId + '" placeholder="Describe the project you want to generate (e.g., minimal repro for this bug, a fix prototype, etc.)"></textarea>';
+                html += '<button class="scaffold-btn" id="scaffold-btn-' + itemId + '" onclick="event.stopPropagation(); scaffoldProject(' + itemId + ')">&#x1F680; Generate &amp; Download .zip</button>';
+                html += '<div id="scaffold-result-' + itemId + '"></div>';
+                html += '</div>';
+
+                html += '</div>';
+                detailsRow.innerHTML = '<td colspan="' + COL_COUNT + '">' + html + '</td>';
+            } catch (err) {
+                detailsRow.innerHTML = '<td colspan="' + COL_COUNT + '"><div class="details-pane"><p class="error">Failed to load details: ' + err.message + '</p></div></td>';
+            }
+        }
+
+        async function summarize(itemId) {
+            var btn = document.getElementById('ai-btn-' + itemId);
+            var container = document.getElementById('ai-summary-' + itemId);
+            btn.disabled = true; btn.textContent = '⏳ Summarizing...';
+            container.innerHTML = '<div class="ai-summary"><div class="ai-label">Generating summary...</div></div>';
+            try {
+                var response = await authFetch('/api/summarize/' + itemId);
+                if (!response.ok) throw new Error('Failed to get AI summary');
+                var data = await response.json();
+                container.innerHTML = '<div class="ai-summary"><div class="ai-label">&#x2728; AI Summary</div>' + data.summary + '</div>';
+                btn.textContent = '✅ Summarized';
+            } catch (err) {
+                container.innerHTML = '<div class="ai-summary" style="border-color:#d13438;background:#fde7e9;"><div class="ai-label" style="color:#d13438;">Error</div>' + err.message + '</div>';
+                btn.disabled = false; btn.textContent = '✨ AI Summary';
+            }
+        }
+
+        async function draftResponse(itemId) {
+            var btn = document.getElementById('reply-btn-' + itemId);
+            var container = document.getElementById('ai-reply-' + itemId);
+            btn.disabled = true; btn.textContent = '⏳ Drafting...';
+            container.innerHTML = '<div class="ai-reply"><div class="ai-label">Generating customer response...</div></div>';
+            try {
+                var response = await authFetch('/api/draft-response/' + itemId);
+                if (!response.ok) throw new Error('Failed to draft response');
+                var data = await response.json();
+                container.innerHTML = '<div class="ai-reply"><div class="ai-label">&#x1F4AC; Draft Customer Response <button class="copy-btn" onclick="event.stopPropagation(); copyReply(' + itemId + ')">&#x1F4CB; Copy</button></div><pre id="reply-text-' + itemId + '">' + data.response + '</pre></div>';
+                btn.textContent = '✅ Draft Ready';
+            } catch (err) {
+                container.innerHTML = '<div class="ai-reply" style="border-color:#d13438;background:#fde7e9;"><div class="ai-label" style="color:#d13438;">Error</div>' + err.message + '</div>';
+                btn.disabled = false; btn.textContent = '💬 Draft Reply';
+            }
+        }
+
+        function copyReply(itemId) {
+            var text = document.getElementById('reply-text-' + itemId).textContent;
+            navigator.clipboard.writeText(text).then(function () {
+                var btn = event.target; btn.textContent = '✅ Copied!';
+                setTimeout(function () { btn.innerHTML = '&#x1F4CB; Copy'; }, 2000);
+            });
+        }
+
+        async function scaffoldProject(itemId) {
+            var btn = document.getElementById('scaffold-btn-' + itemId);
+            var desc = document.getElementById('scaffold-desc-' + itemId).value.trim();
+            var result = document.getElementById('scaffold-result-' + itemId);
+
+            if (!desc) {
+                result.innerHTML = '<div class="scaffold-error">Please enter a project description.</div>';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Generating...';
+            result.innerHTML = '';
+
+            try {
+                var response = await authFetch('/api/scaffold/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ instructions: desc, projectName: 'WI-' + itemId + '-project' })
+                });
+
+                if (!response.ok) {
+                    var errText = await response.text();
+                    throw new Error(errText || 'Generation failed');
+                }
+
+                var blob = await response.blob();
+                var url = window.URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'WI-' + itemId + '-project.zip';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+
+                result.innerHTML = '<div class="scaffold-success">&#x2705; Project downloaded successfully!</div>';
+                btn.textContent = '✅ Downloaded';
+            } catch (err) {
+                result.innerHTML = '<div class="scaffold-error">Failed to generate project: ' + err.message + '</div>';
+                btn.disabled = false;
+                btn.textContent = '🚀 Generate & Download .zip';
+            }
+        }
+
+        async function calcBugProbability(itemId) {
+            var btn = document.getElementById('prob-btn-' + itemId);
+            var container = document.getElementById('bug-prob-' + itemId);
+            btn.disabled = true;
+            btn.textContent = '⏳ Analyzing...';
+            container.innerHTML = '<div class="bug-prob-result" style="background:#f3edf7;"><div class="prob-label" style="color:#6b3fa0;">Calculating bug probability...</div></div>';
+
+            var item = allItems.find(function (i) { return i.id === itemId; });
+            var priority = item && item.fields ? (item.fields.priority || 3) : 3;
+
+            try {
+                var response = await authFetch('/api/bug-probability/' + itemId + '?priority=' + priority + '&isTopTheme=false');
+                if (!response.ok) throw new Error('Failed to assess bug probability');
+                var data = await response.json();
+
+                var prob = data.probability || 0;
+                var confidence = data.confidence || 'N/A';
+                var reasoning = data.reasoning || '';
+                var color = prob >= 70 ? '#d13438' : prob >= 40 ? '#ca5010' : '#107c10';
+                var bg = prob >= 70 ? '#fde7e9' : prob >= 40 ? '#fff4ce' : '#dff6dd';
+
+                container.innerHTML = '<div class="bug-prob-result" style="background:' + bg + ';border-color:' + color + ';">' +
+                    '<div class="prob-label" style="color:' + color + ';">&#x1F41B; Bug Probability</div>' +
+                    '<div class="prob-meter">' +
+                        '<div class="prob-meter-bar"><div class="prob-meter-fill" style="width:' + prob + '%;background:' + color + ';"></div></div>' +
+                        '<span class="prob-pct" style="color:' + color + ';">' + prob + '%</span>' +
+                        '<span class="prob-confidence">' + confidence + ' confidence</span>' +
+                    '</div>' +
+                    '<div class="prob-reasoning">' + reasoning + '</div>' +
+                '</div>';
+                btn.textContent = '✅ ' + prob + '% Bug';
+            } catch (err) {
+                container.innerHTML = '<div class="bug-prob-result" style="background:#fde7e9;border-color:#d13438;"><div class="prob-label" style="color:#d13438;">Error</div>' + err.message + '</div>';
+                btn.disabled = false;
+                btn.textContent = '🐛 Bug Probability';
+            }
+        }
+
+        function getStateClass(state) {
+            if (!state) return 'state-default';
+            switch (state.toLowerCase()) {
+                case 'active': return 'state-active';
+                case 'new': return 'state-new';
+                case 'resolved': return 'state-resolved';
+                default: return 'state-default';
+            }
+        }
+    </script>
+    <script>
+        renderUserInfo('userInfo', { linkColor: '#e0d4f5' });
+    </script>
+</body>

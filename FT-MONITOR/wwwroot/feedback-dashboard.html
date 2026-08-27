@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feedback Themes Dashboard</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+        }
+
+        header {
+            background: #107c10;
+            color: #fff;
+            padding: 20px 40px;
+        }
+
+            header h1 {
+                font-size: 1.5rem;
+                font-weight: 600;
+            }
+
+            header .nav-links {
+                margin-top: 4px;
+            }
+
+            header .nav-link {
+                color: #c8e6c9;
+                font-size: 13px;
+                text-decoration: none;
+                margin-right: 20px;
+            }
+
+                header .nav-link:hover {
+                    color: #fff;
+                    text-decoration: underline;
+                }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding: 20px 40px;
+            background: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            flex-wrap: wrap;
+        }
+
+            .controls label {
+                font-weight: 600;
+            }
+
+            .controls select,
+            .controls button {
+                padding: 8px 16px;
+                font-size: 14px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+            }
+
+            .controls button {
+                background: #107c10;
+                color: #fff;
+                border: none;
+                cursor: pointer;
+                font-weight: 600;
+            }
+
+                .controls button:hover {
+                    background: #0b6a0b;
+                }
+
+        .content {
+            padding: 20px 40px;
+        }
+
+        .message {
+            padding: 40px 20px;
+            color: #666;
+            font-style: italic;
+            text-align: center;
+        }
+
+        .error {
+            color: #d13438;
+            font-style: normal;
+            font-weight: 600;
+        }
+
+        .loading-bar {
+            display: none;
+            height: 3px;
+            background: linear-gradient(90deg, #107c10, #4caf50, #107c10);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: -200% 0;
+            }
+
+            100% {
+                background-position: 200% 0;
+            }
+        }
+
+        /* Theme cards grid */
+        .themes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        .theme-card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+            border-left: 5px solid #107c10;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            position: relative;
+        }
+
+            .theme-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            }
+
+            .theme-card.active {
+                border-left-color: #0b6a0b;
+                box-shadow: 0 4px 16px rgba(16,124,16,0.25);
+            }
+
+            .theme-card .theme-rank {
+                position: absolute;
+                top: 12px;
+                right: 16px;
+                font-size: 2rem;
+                font-weight: 700;
+                color: #e8f5e9;
+            }
+
+            .theme-card h3 {
+                font-size: 1.05rem;
+                color: #107c10;
+                margin-bottom: 8px;
+                padding-right: 40px;
+            }
+
+            .theme-card .theme-desc {
+                font-size: 0.88rem;
+                color: #605e5c;
+                line-height: 1.5;
+                margin-bottom: 12px;
+            }
+
+            .theme-card .theme-count {
+                font-size: 0.82rem;
+                font-weight: 600;
+                color: #333;
+                background: #e8f5e9;
+                display: inline-block;
+                padding: 3px 10px;
+                border-radius: 12px;
+            }
+
+        /* Work items panel */
+        .items-panel {
+            display: none;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin-bottom: 32px;
+        }
+
+            .items-panel.visible {
+                display: block;
+            }
+
+            .items-panel .panel-header {
+                background: #107c10;
+                color: #fff;
+                padding: 14px 24px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+                .items-panel .panel-header h3 {
+                    font-size: 1rem;
+                    font-weight: 600;
+                }
+
+                .items-panel .panel-header button {
+                    background: transparent;
+                    border: 1px solid rgba(255,255,255,0.5);
+                    color: #fff;
+                    padding: 4px 12px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 13px;
+                }
+
+                    .items-panel .panel-header button:hover {
+                        background: rgba(255,255,255,0.15);
+                    }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f5f5f5;
+            color: #333;
+            padding: 10px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        td {
+            padding: 10px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: #f0faf0;
+        }
+
+        .priority {
+            font-weight: 700;
+            text-align: center;
+            border-radius: 4px;
+            padding: 2px 8px;
+            display: inline-block;
+            min-width: 24px;
+        }
+
+        .p1 {
+            background: #fde7e9;
+            color: #d13438;
+        }
+
+        .p2 {
+            background: #fff4ce;
+            color: #ca5010;
+        }
+
+        .p3 {
+            background: #edebe9;
+            color: #605e5c;
+        }
+
+        .p4 {
+            background: #f3f2f1;
+            color: #8a8886;
+        }
+
+        .state-badge {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .state-active {
+            background: #e8f5e9;
+            color: #107c10;
+        }
+
+        .state-new {
+            background: #e3f2fd;
+            color: #0078d4;
+        }
+
+        .state-resolved {
+            background: #fff3e0;
+            color: #ca5010;
+        }
+
+        .state-default {
+            background: #f3f2f1;
+            color: #605e5c;
+        }
+
+        .bug-prob-btn {
+            background: #0078d4;
+            color: #fff;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+            .bug-prob-btn:hover {
+                background: #106ebe;
+            }
+
+            .bug-prob-btn:disabled {
+                background: #c8c6c4;
+                cursor: not-allowed;
+            }
+
+        .prob-result {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .prob-bar {
+            width: 60px;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .prob-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.4s ease;
+        }
+
+        .prob-tooltip {
+            position: relative;
+            cursor: help;
+        }
+
+        .prob-tooltip .prob-tooltip-text {
+            visibility: hidden;
+            background: #333;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 400;
+            line-height: 1.4;
+            width: 260px;
+            position: absolute;
+            z-index: 10;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .prob-tooltip:hover .prob-tooltip-text {
+            visibility: visible;
+        }
+
+        .wi-link {
+            color: #107c10;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+            .wi-link:hover {
+                text-decoration: underline;
+            }
+
+        .summary-bar {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .summary-stat {
+            background: #fff;
+            border-radius: 8px;
+            padding: 16px 24px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            text-align: center;
+            min-width: 140px;
+        }
+
+            .summary-stat .stat-value {
+                font-size: 1.8rem;
+                font-weight: 700;
+                color: #107c10;
+            }
+
+            .summary-stat .stat-label {
+                font-size: 0.82rem;
+                color: #605e5c;
+                margin-top: 4px;
+            }
+    </style>
+    <script src="/js/msal-auth.js"></script>
+</head>
+
+<body>
+    <header>
+        <h1>📊 Feedback Themes Dashboard</h1>
+        <div class="nav-links">
+            <a href="/" class="nav-link">← Home</a>
+            <a href="/feedback-insights.html" class="nav-link">Feedback Insights</a>
+            <a href="/most-relevant.html" class="nav-link">Most Relevant</a>
+            <a href="/top-feedback.html" class="nav-link">Feedback Tickets</a>
+            <a href="/top-bugs.html" class="nav-link">Bugs</a>
+            <span id="userInfo" style="font-size:12px;color:#c8e6c9;float:right;"></span>
+        </div>
+    </header>
+
+    <div class="controls">
+        <label for="projectArea">Area:</label>
+        <select id="projectArea">
+            <option value="">Loading...</option>
+        </select>
+        <button onclick="loadThemes()">🔍 Analyze Themes</button>
+    </div>
+
+    <div class="loading-bar" id="loadingBar"></div>
+
+    <div class="content">
+        <div id="messageArea" class="message">Select an area and click <strong>Analyze Themes</strong> to identify common feedback patterns using AI.</div>
+
+        <div id="summaryBar" class="summary-bar" style="display:none;"></div>
+        <div id="themesGrid" class="themes-grid"></div>
+
+        <div id="itemsPanel" class="items-panel">
+            <div class="panel-header">
+                <h3 id="panelTitle">Work Items</h3>
+                <button onclick="closePanel()">✕ Close</button>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Priority</th>
+                        <th>Title</th>
+                        <th>State</th>
+                        <th>Assigned To</th>
+                        <th>Bug Probability</th>
+                    </tr>
+                </thead>
+                <tbody id="itemsBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>let allItems = [];
+        let themes = [];
+        let activeThemeIndex = -1;
+
+        (async function loadAreaPaths() {
+            var areaSelect = document.getElementById('projectArea');
+            try {
+                var response = await authFetch('/api/parameters/area-paths');
+                if (!response.ok) throw new Error('Failed to load area paths');
+                var paths = await response.json();
+                areaSelect.innerHTML = '';
+                paths.forEach(function (p) {
+                    var opt = document.createElement('option');
+                    opt.value = p.name;
+                    opt.textContent = p.name;
+                    areaSelect.appendChild(opt);
+                });
+            } catch (err) {
+                areaSelect.innerHTML = '<option value="">Error loading</option>';
+                console.error('Failed to load area paths:', err);
+            }
+        })();
+
+        async function loadThemes() {
+            const area = document.getElementById('projectArea').value;
+            const grid = document.getElementById('themesGrid');
+            const msg = document.getElementById('messageArea');
+            const bar = document.getElementById('loadingBar');
+            const summary = document.getElementById('summaryBar');
+
+            grid.innerHTML = '';
+            summary.style.display = 'none';
+            closePanel();
+            msg.innerHTML = '⏳ Fetching feedback items and analyzing themes with AI… This may take a moment.';
+            msg.className = 'message';
+            msg.style.display = 'block';
+            bar.style.display = 'block';
+
+            try {
+                const res = await authFetch(`/api/feedback-themes?projectArea=${encodeURIComponent(area)}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+                const data = await res.json();
+                allItems = data.items || [];
+
+                // Parse themes — the endpoint returns themes as a JSON string
+                try {
+                    themes = typeof data.themes === 'string' ? JSON.parse(data.themes) : data.themes;
+                } catch (e) {
+                    throw new Error('AI returned invalid theme data. Try again.');
+                }
+
+                if (!themes || themes.length === 0) {
+                    msg.textContent = 'No themes identified. Try a different area or ensure there are feedback items.';
+                    bar.style.display = 'none';
+                    return;
+                }
+
+                msg.style.display = 'none';
+                bar.style.display = 'none';
+                renderSummary();
+                renderThemes();
+
+            } catch (err) {
+                bar.style.display = 'none';
+                msg.innerHTML = `<span class="error">❌ ${err.message}</span>`;
+            }
+        }
+
+        function renderSummary() {
+            const summary = document.getElementById('summaryBar');
+            const totalItems = allItems.length;
+            const totalThemed = new Set(themes.flatMap(t => t.workItemIds || [])).size;
+
+            summary.innerHTML = `
+                <div class="summary-stat">
+                    <div class="stat-value">${totalItems}</div>
+                    <div class="stat-label">Total Feedback Items</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="stat-value">${themes.length}</div>
+                    <div class="stat-label">Themes Identified</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="stat-value">${totalThemed}</div>
+                    <div class="stat-label">Items Classified</div>
+                </div>
+            `;
+            summary.style.display = 'flex';
+        }
+
+        function renderThemes() {
+            const grid = document.getElementById('themesGrid');
+            grid.innerHTML = themes.map((t, i) => `
+                <div class="theme-card ${activeThemeIndex === i ? 'active' : ''}" onclick="selectTheme(${i})">
+                    <div class="theme-rank">#${i + 1}</div>
+                    <h3>${escapeHtml(t.theme)}</h3>
+                    <div class="theme-desc">${escapeHtml(t.description)}</div>
+                    <span class="theme-count">${t.count} item${t.count !== 1 ? 's' : ''}</span>
+                </div>
+            `).join('');
+        }
+
+        function selectTheme(index) {
+            if (activeThemeIndex === index) {
+                closePanel();
+                return;
+            }
+
+            activeThemeIndex = index;
+            const theme = themes[index];
+            const ids = theme.workItemIds || [];
+
+            // Build a lookup from allItems
+            const lookup = {};
+            allItems.forEach(item => lookup[item.id] = item);
+
+            const matchedItems = ids
+                .map(id => lookup[id])
+                .filter(Boolean);
+
+            const panel = document.getElementById('itemsPanel');
+            const title = document.getElementById('panelTitle');
+            const body = document.getElementById('itemsBody');
+
+            title.textContent = `${theme.theme} — ${matchedItems.length} work item${matchedItems.length !== 1 ? 's' : ''}`;
+
+            // Determine which item IDs belong to top-5 themes
+            const top5Ids = new Set(themes.slice(0, 5).flatMap(t => t.workItemIds || []));
+
+            body.innerHTML = matchedItems.map(item => `
+                <tr>
+                    <td><a class="wi-link" href="https://dev.azure.com/devdiv/devdiv/_workitems/edit/${item.id}" target="_blank">${item.id}</a></td>
+                    <td><span class="priority p${item.priority}">${item.priority}</span></td>
+                    <td>${escapeHtml(item.title)}</td>
+                    <td><span class="state-badge ${getStateClass(item.state)}">${escapeHtml(item.state)}</span></td>
+                    <td>${escapeHtml(item.assignedTo)}</td>
+                    <td><button class="bug-prob-btn" id="prob-btn-${item.id}" onclick="calcBugProbability(${item.id}, ${item.priority}, ${top5Ids.has(item.id)})">🐛 Assess</button></td>
+                </tr>
+            `).join('');
+
+            if (matchedItems.length === 0) {
+                body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#666;padding:20px;">No matching items found in the loaded data.</td></tr>';
+            }
+
+            panel.classList.add('visible');
+            renderThemes(); // refresh active state
+            panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function closePanel() {
+            activeThemeIndex = -1;
+            document.getElementById('itemsPanel').classList.remove('visible');
+            renderThemes();
+        }
+
+        function getStateClass(state) {
+            if (!state) return 'state-default';
+            const s = state.toLowerCase();
+            if (s === 'active') return 'state-active';
+            if (s === 'new') return 'state-new';
+            if (s === 'resolved') return 'state-resolved';
+            return 'state-default';
+        }
+
+        async function calcBugProbability(id, priority, isTopTheme) {
+            const btn = document.getElementById(`prob-btn-${id}`);
+            btn.disabled = true;
+            btn.textContent = '⏳ …';
+
+            try {
+                const res = await authFetch(`/api/bug-probability/${id}?priority=${priority}&isTopTheme=${isTopTheme}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+
+                const prob = data.probability ?? 0;
+                const confidence = data.confidence ?? 'N/A';
+                const reasoning = data.reasoning ?? '';
+                const color = prob >= 70 ? '#d13438' : prob >= 40 ? '#ca5010' : '#107c10';
+
+                btn.outerHTML = `
+                    <span class="prob-result prob-tooltip">
+                        <span class="prob-bar"><span class="prob-bar-fill" style="width:${prob}%;background:${color}"></span></span>
+                        <span style="color:${color}">${prob}%</span>
+                        <span style="font-weight:400;color:#605e5c;font-size:11px">${confidence}</span>
+                        <span class="prob-tooltip-text">${escapeHtml(reasoning)}</span>
+                    </span>`;
+            } catch (err) {
+                btn.outerHTML = `<span style="color:#d13438;font-size:12px">❌ Error</span>`;
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }</script>
+    <script>
+        renderUserInfo('userInfo', { linkColor: '#c8e6c9' });
+    </script>
+</body>
+
+</html>

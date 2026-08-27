@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GitHub Issues — FT Monitor</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            color: #24292f;
+        }
+        header {
+            background: #24292f;
+            color: #fff;
+            padding: 20px 40px;
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 12px;
+        }
+        header h1 { font-size: 1.5rem; font-weight: 600; }
+        header a { color: #c8e6c9; text-decoration: none; font-size: 0.9rem; }
+        header a:hover { text-decoration: underline; }
+        .controls {
+            display: flex; gap: 12px; align-items: center;
+            padding: 16px 40px; background: #fff;
+            border-bottom: 1px solid #e0e0e0; flex-wrap: wrap;
+        }
+        .controls label { font-weight: 600; font-size: 0.9rem; }
+        .controls select, .controls input[type="text"], .controls button {
+            padding: 8px 12px; font-size: 14px;
+            border: 1px solid #d0d7de; border-radius: 6px;
+        }
+        .controls button {
+            background: #1f883d; color: #fff; border: none; cursor: pointer; font-weight: 600;
+        }
+        .controls button:hover { background: #1a7f37; }
+        .container { padding: 24px 40px; }
+        .message {
+            padding: 12px 16px; border-radius: 6px;
+            margin-bottom: 16px; display: none;
+            background: #ddf4ff; color: #0969da; border: 1px solid #b6e3ff;
+        }
+        .message.error { background: #ffebe9; color: #cf222e; border-color: #ff8182; }
+
+        table {
+            width: 100%; border-collapse: collapse; background: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-radius: 6px; overflow: hidden;
+        }
+        thead { background: #f6f8fa; }
+        th, td {
+            text-align: left; padding: 10px 14px; font-size: 14px;
+            border-bottom: 1px solid #eaeef2; vertical-align: top;
+        }
+        th { font-weight: 600; color: #57606a; }
+        tbody tr { cursor: pointer; }
+        tbody tr:hover { background: #f6f8fa; }
+
+        .state {
+            display: inline-block; padding: 2px 8px; border-radius: 999px;
+            font-size: 12px; font-weight: 600;
+        }
+        .state.open { background: #dafbe1; color: #1a7f37; }
+        .state.closed { background: #fbe9e7; color: #cf222e; }
+
+        .labels { display: flex; flex-wrap: wrap; gap: 4px; }
+        .label-chip {
+            display: inline-block; padding: 1px 8px; border-radius: 999px;
+            font-size: 11px; font-weight: 600;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .num { color: #57606a; font-variant-numeric: tabular-nums; }
+        .title-link { color: #0969da; font-weight: 600; text-decoration: none; }
+        .title-link:hover { text-decoration: underline; }
+
+        .avatar {
+            width: 20px; height: 20px; border-radius: 50%; vertical-align: middle;
+            margin-right: 4px;
+        }
+
+        .pager {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-top: 16px; font-size: 0.9rem; color: #57606a;
+        }
+        .pager button {
+            padding: 6px 12px; font-size: 14px;
+            border: 1px solid #d0d7de; border-radius: 6px;
+            background: #f6f8fa; cursor: pointer;
+        }
+        .pager button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Detail modal */
+        .modal-backdrop {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.45); z-index: 100;
+            align-items: center; justify-content: center; padding: 24px;
+        }
+        .modal-backdrop.show { display: flex; }
+        .modal {
+            background: #fff; border-radius: 8px; width: 100%; max-width: 900px;
+            max-height: 90vh; overflow-y: auto; padding: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .modal h2 { font-size: 1.2rem; margin-bottom: 8px; }
+        .modal .meta { font-size: 0.85rem; color: #57606a; margin-bottom: 16px; }
+        .modal .body, .modal .comment {
+            background: #f6f8fa; padding: 12px; border-radius: 6px;
+            margin-bottom: 12px; white-space: pre-wrap; font-size: 0.9rem;
+            border: 1px solid #eaeef2;
+        }
+        .modal .comment-author { font-weight: 600; color: #24292f; }
+        .modal-actions { display: flex; gap: 8px; margin-bottom: 16px; }
+        .modal-actions button {
+            padding: 6px 14px; border-radius: 6px; font-size: 14px;
+            border: 1px solid #d0d7de; cursor: pointer; background: #f6f8fa;
+        }
+        .modal-actions .primary {
+            background: #1f883d; color: #fff; border-color: #1f883d;
+        }
+        .summary-box {
+            background: #fff8e1; border: 1px solid #f0c948; border-radius: 6px;
+            padding: 12px; margin-bottom: 12px; white-space: pre-wrap; font-size: 0.92rem;
+        }
+    </style>
+    <script src="/js/msal-auth.js"></script>
+</head>
+<body>
+    <header>
+        <h1>🐙 GitHub Issues</h1>
+        <div style="display:flex;align-items:center;gap:16px;">
+            <div id="userInfo" style="font-size:0.9rem;"></div>
+            <a href="/index.html">← Back to home</a>
+        </div>
+    </header>
+
+    <div class="controls">
+        <label for="repoSel">Repository:</label>
+        <select id="repoSel"></select>
+
+        <label for="stateSel">State:</label>
+        <select id="stateSel">
+            <option value="open" selected>Open</option>
+            <option value="closed">Closed</option>
+            <option value="all">All</option>
+        </select>
+
+        <label for="labelInput">Labels:</label>
+        <input type="text" id="labelInput" placeholder="bug,help wanted" style="width:180px;" />
+
+        <label for="assigneeInput">Assignee:</label>
+        <input type="text" id="assigneeInput" placeholder="login or * or none" style="width:140px;" />
+
+        <label for="searchInput">Search:</label>
+        <input type="text" id="searchInput" placeholder="free-text query" style="width:200px;" />
+
+        <button id="loadBtn">Load</button>
+    </div>
+
+    <div class="container">
+        <div id="messageArea" class="message"></div>
+
+        <table id="issueTable" style="display:none;">
+            <thead>
+                <tr>
+                    <th style="width:80px;">#</th>
+                    <th style="width:80px;">State</th>
+                    <th>Title</th>
+                    <th style="width:160px;">Labels</th>
+                    <th style="width:140px;">Assignees</th>
+                    <th style="width:90px;">Comments</th>
+                    <th style="width:130px;">Updated</th>
+                </tr>
+            </thead>
+            <tbody id="issueBody"></tbody>
+        </table>
+
+        <div class="pager" id="pager" style="display:none;">
+            <span id="pageInfo"></span>
+            <div>
+                <button id="prevBtn">← Prev</button>
+                <button id="nextBtn">Next →</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="modalBackdrop">
+        <div class="modal" id="modal"></div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        let nextPage = null, prevPage = null;
+
+        (async function initRepos() {
+            try {
+                const r = await authFetch('/api/github/repositories');
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const repos = await r.json();
+                const sel = document.getElementById('repoSel');
+                sel.innerHTML = '';
+                repos.forEach(rp => {
+                    const o = document.createElement('option');
+                    o.value = rp.name;
+                    o.textContent = `${rp.owner}/${rp.repo}`;
+                    sel.appendChild(o);
+                });
+                if (repos.length) loadIssues();
+            } catch (err) {
+                showMessage('Failed to load repositories: ' + err.message, true);
+            }
+        })();
+
+        document.getElementById('loadBtn').addEventListener('click', () => {
+            currentPage = 1;
+            loadIssues();
+        });
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            if (nextPage) { currentPage = nextPage; loadIssues(); }
+        });
+        document.getElementById('prevBtn').addEventListener('click', () => {
+            if (prevPage) { currentPage = prevPage; loadIssues(); }
+        });
+
+        async function loadIssues() {
+            const area = document.getElementById('repoSel').value;
+            const state = document.getElementById('stateSel').value;
+            const labels = document.getElementById('labelInput').value.trim();
+            const assignee = document.getElementById('assigneeInput').value.trim();
+            const q = document.getElementById('searchInput').value.trim();
+            if (!area) return;
+
+            const params = new URLSearchParams({ area, state, page: currentPage, perPage: 30 });
+            if (labels) params.set('labels', labels);
+            if (assignee) params.set('assignee', assignee);
+            if (q) params.set('q', q);
+
+            showMessage('⏳ Loading issues…');
+            document.getElementById('issueTable').style.display = 'none';
+            document.getElementById('pager').style.display = 'none';
+
+            try {
+                const res = await authFetch('/api/github/issues?' + params.toString());
+                if (!res.ok) {
+                    let detail = '';
+                    try {
+                        const err = await res.json();
+                        detail = err.message || err.error || JSON.stringify(err);
+                        if (err.rateRemaining === '0') {
+                            detail += ' — GitHub rate limit hit. Add a PAT in appsettings.json (GitHub:Token).';
+                        }
+                    } catch { detail = await res.text(); }
+                    throw new Error(`HTTP ${res.status} — ${detail}`);
+                }
+                const data = await res.json();
+                renderIssues(data.items || []);
+                nextPage = data.nextPage || null;
+                prevPage = data.prevPage || (currentPage > 1 ? currentPage - 1 : null);
+
+                const total = data.totalCount != null
+                    ? `${data.totalCount} matching issue(s)`
+                    : `Page ${currentPage}`;
+                document.getElementById('pageInfo').textContent = total;
+                document.getElementById('prevBtn').disabled = !prevPage;
+                document.getElementById('nextBtn').disabled = !nextPage;
+
+                document.getElementById('pager').style.display = 'flex';
+                hideMessage();
+            } catch (err) {
+                showMessage('Failed to load issues: ' + err.message, true);
+            }
+        }
+
+        function renderIssues(issues) {
+            const body = document.getElementById('issueBody');
+            if (!issues.length) {
+                body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#57606a;padding:24px;">No issues found.</td></tr>';
+                document.getElementById('issueTable').style.display = 'table';
+                return;
+            }
+            body.innerHTML = issues.map(i => {
+                const labels = (i.labels || []).map(l =>
+                    `<span class="label-chip" style="background:#${l.color || 'e0e0e0'}22;border-color:#${l.color || 'd0d7de'};">${escapeHtml(l.name)}</span>`
+                ).join('');
+                const assignees = (i.assignees || []).map(a =>
+                    `<img class="avatar" src="${a.avatarUrl}" alt="" title="${escapeHtml(a.login)}" />`
+                ).join('');
+                return `
+                    <tr data-number="${i.number}">
+                        <td class="num">#${i.number}</td>
+                        <td><span class="state ${i.state}">${i.state}</span></td>
+                        <td><a class="title-link" href="${i.htmlUrl}" target="_blank" rel="noopener">${escapeHtml(i.title)}</a></td>
+                        <td><div class="labels">${labels}</div></td>
+                        <td>${assignees || '<span style="color:#8c959f;">—</span>'}</td>
+                        <td class="num">${i.comments}</td>
+                        <td class="num">${formatDate(i.updatedAt)}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            body.querySelectorAll('tr[data-number]').forEach(tr => {
+                tr.addEventListener('click', ev => {
+                    if (ev.target.tagName === 'A' || ev.target.tagName === 'IMG') return;
+                    openIssue(parseInt(tr.dataset.number, 10));
+                });
+            });
+
+            document.getElementById('issueTable').style.display = 'table';
+        }
+
+        async function openIssue(number) {
+            const area = document.getElementById('repoSel').value;
+            const modal = document.getElementById('modal');
+            const backdrop = document.getElementById('modalBackdrop');
+            modal.innerHTML = '<p>⏳ Loading issue…</p>';
+            backdrop.classList.add('show');
+
+            try {
+                const r = await authFetch(`/api/github/issues/${number}?area=${encodeURIComponent(area)}`);
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const data = await r.json();
+                renderIssueDetail(data.issue, data.comments);
+            } catch (err) {
+                modal.innerHTML = `<p style="color:#cf222e;">Failed to load issue: ${escapeHtml(err.message)}</p>
+                    <div class="modal-actions"><button onclick="closeModal()">Close</button></div>`;
+            }
+        }
+
+        function renderIssueDetail(issue, comments) {
+            const labels = (issue.labels || []).map(l =>
+                `<span class="label-chip" style="background:#${l.color || 'e0e0e0'}22;border-color:#${l.color || 'd0d7de'};">${escapeHtml(l.name)}</span>`
+            ).join(' ');
+            const assignees = (issue.assignees || []).map(a => escapeHtml(a.login)).join(', ') || '—';
+
+            const commentsHtml = (comments || []).map(c => `
+                <div class="comment">
+                    <div class="comment-author">${escapeHtml(c.user?.login || 'unknown')} • ${formatDate(c.createdAt)}</div>
+                    <div>${escapeHtml(c.body || '')}</div>
+                </div>
+            `).join('');
+
+            document.getElementById('modal').innerHTML = `
+                <h2>#${issue.number} — ${escapeHtml(issue.title)}</h2>
+                <div class="meta">
+                    <span class="state ${issue.state}">${issue.state}</span> •
+                    opened by <strong>${escapeHtml(issue.user?.login || 'unknown')}</strong> on ${formatDate(issue.createdAt)} •
+                    Assignees: ${assignees}<br>
+                    Labels: ${labels || '—'}<br>
+                    <a href="${issue.htmlUrl}" target="_blank" rel="noopener">View on GitHub ↗</a>
+                </div>
+                <div class="modal-actions">
+                    <button class="primary" id="summarizeBtn">🤖 Summarize with AI</button>
+                    <button onclick="closeModal()">Close</button>
+                </div>
+                <div id="summaryArea"></div>
+                <h3 style="margin-bottom:6px;">Description</h3>
+                <div class="body">${escapeHtml(issue.body || '(no description)')}</div>
+                <h3 style="margin-bottom:6px;">Comments (${(comments || []).length})</h3>
+                ${commentsHtml || '<p style="color:#57606a;">No comments.</p>'}
+            `;
+
+            document.getElementById('summarizeBtn').addEventListener('click', () =>
+                summarizeIssue(issue.number));
+        }
+
+        async function summarizeIssue(number) {
+            const area = document.getElementById('repoSel').value;
+            const area_div = document.getElementById('summaryArea');
+            area_div.innerHTML = '<div class="summary-box">⏳ Generating AI summary…</div>';
+            try {
+                const r = await authFetch(`/api/github/issues/${number}/summary?area=${encodeURIComponent(area)}`);
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const data = await r.json();
+                area_div.innerHTML = `<div class="summary-box"><strong>🤖 AI Summary</strong>\n\n${escapeHtml(data.summary || '')}</div>`;
+            } catch (err) {
+                area_div.innerHTML = `<div class="summary-box" style="background:#ffebe9;border-color:#ff8182;color:#cf222e;">Failed: ${escapeHtml(err.message)}</div>`;
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modalBackdrop').classList.remove('show');
+        }
+        document.getElementById('modalBackdrop').addEventListener('click', ev => {
+            if (ev.target.id === 'modalBackdrop') closeModal();
+        });
+
+        function showMessage(text, isError) {
+            const m = document.getElementById('messageArea');
+            m.textContent = text;
+            m.className = 'message' + (isError ? ' error' : '');
+            m.style.display = 'block';
+        }
+        function hideMessage() {
+            document.getElementById('messageArea').style.display = 'none';
+        }
+        function formatDate(s) {
+            if (!s) return '';
+            const d = new Date(s);
+            return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            const div = document.createElement('div');
+            div.textContent = String(text);
+            return div.innerHTML;
+        }
+
+        renderUserInfo('userInfo', { linkColor: '#c8e6c9' });
+    </script>
+</body>
+</html>

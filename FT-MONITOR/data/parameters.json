@@ -1,0 +1,7 @@
+{
+  "Project": "DevDiv\\NET Tools\\Project",
+  "Modernization Upgrade": "DevDiv\\.NET Modernization\\Upgrade",
+  "Webtools": "DevDiv\\NET Tools\\Web Tools",
+  "Migrate": "DevDiv\\.NET Modernization\\Migrate",
+  "Publish": "DevDiv\\.NET Modernization\\Azure Tools"
+}
