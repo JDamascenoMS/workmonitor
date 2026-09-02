@@ -1,7 +1,7 @@
-using FT_MONITOR.Clients;
-using FT_MONITOR.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using WorkMonitor.Agent;
+using WorkMonitor.Core.Clients;
 
 namespace FT_MONITOR.Controllers
 {

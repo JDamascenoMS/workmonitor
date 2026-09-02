@@ -5,6 +5,10 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
+using WorkMonitor.Agent;
+using WorkMonitor.Agent.Tools;
+using WorkMonitor.Core.Clients;
+using WorkMonitor.Core.Services;
 
 namespace FT_MONITOR
 {
@@ -26,7 +30,7 @@ namespace FT_MONITOR
             // Persist data-protection keys to disk so the auth cookie remains
             // decryptable across app restarts/rebuilds in development. Without
             // this, every rebuild rotates the in-memory keys and the browser's
-            // existing .AspNetCore.Cookies cookie can no longer be decrypted —
+            // existing .AspNetCore.Cookies cookie can no longer be decrypted ï¿½
             // resulting in silent 401s on /api/* until the user clears cookies.
             var keysFolder = Path.Combine(builder.Environment.ContentRootPath, "App_Data", "DpKeys");
             Directory.CreateDirectory(keysFolder);
@@ -36,7 +40,7 @@ namespace FT_MONITOR
 
             // Add Microsoft Entra ID authentication for page protection (OIDC sign-in).
             // Azure DevOps tokens are acquired separately via DefaultAzureCredential
-            // (managed identity in Azure, VS/CLI locally) — no admin consent needed.
+            // (managed identity in Azure, VS/CLI locally) ï¿½ no admin consent needed.
             //
             // Scheme topology:
             //   - Default authenticate / sign-in scheme = Cookies
@@ -47,7 +51,7 @@ namespace FT_MONITOR
             //
             // Forcing OIDC as the default authenticate scheme breaks API calls
             // because the OIDC handler can't authenticate a normal request from
-            // a cookie — it only validates the inbound auth code response.
+            // a cookie ï¿½ it only validates the inbound auth code response.
             builder.Services.AddAuthentication(options =>
             {
                 options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
@@ -101,26 +105,31 @@ namespace FT_MONITOR
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
-            builder.Services.AddSingleton<FT_MONITOR.Services.AzureOpenAIService>();
-            builder.Services.AddSingleton<FT_MONITOR.Services.ParametersService>();
-            builder.Services.AddSingleton<FT_MONITOR.Services.DevOpsTokenService>();
+            builder.Services.AddSingleton<AzureOpenAIService>();
+            builder.Services.AddSingleton<IAgentModel>(
+                services => services.GetRequiredService<AzureOpenAIService>());
+            builder.Services.AddSingleton(
+                _ => new ParametersService(builder.Environment.ContentRootPath));
+            builder.Services.AddSingleton<DevOpsTokenService>();
 
             // Typed HttpClient for the GitHub REST API used by the
             // GitHub Issues dashboard. Token (if any) comes from GitHub:Token.
-            builder.Services.AddHttpClient<FT_MONITOR.Clients.GitHubClient>();
+            builder.Services.AddHttpClient<GitHubClient>();
 
             // ---- Agent feature ----
             // Tools are registered as singletons through IAgentTool so the
             // AgentToolRegistry can collect them via DI. Add new tools here.
-            builder.Services.AddSingleton<FT_MONITOR.Services.Agent.IAgentTool, FT_MONITOR.Services.Agent.Tools.SearchWorkItemsTool>();
-            builder.Services.AddSingleton<FT_MONITOR.Services.Agent.IAgentTool, FT_MONITOR.Services.Agent.Tools.GetWorkItemTool>();
-            builder.Services.AddSingleton<FT_MONITOR.Services.Agent.IAgentTool, FT_MONITOR.Services.Agent.Tools.AddWorkItemCommentTool>();
-            builder.Services.AddSingleton<FT_MONITOR.Services.Agent.IAgentTool, FT_MONITOR.Services.Agent.Tools.ListProjectAreasTool>();
-            builder.Services.AddSingleton<FT_MONITOR.Services.Agent.IAgentTool, FT_MONITOR.Services.Agent.Tools.ListGithubIssuesTool>();
-            builder.Services.AddSingleton<FT_MONITOR.Services.Agent.IAgentTool, FT_MONITOR.Services.Agent.Tools.GetGithubIssueTool>();
-            builder.Services.AddSingleton<FT_MONITOR.Services.Agent.AgentToolRegistry>();
-            builder.Services.AddSingleton<FT_MONITOR.Services.Agent.AgentService>();
-            builder.Services.AddSingleton<FT_MONITOR.Services.SkillStore>();
+            builder.Services.AddSingleton<IAgentTool, SearchWorkItemsTool>();
+            builder.Services.AddSingleton<IAgentTool, GetWorkItemTool>();
+            builder.Services.AddSingleton<IAgentTool, AddWorkItemCommentTool>();
+            builder.Services.AddSingleton<IAgentTool, ListProjectAreasTool>();
+            builder.Services.AddSingleton<IAgentTool, ListGithubIssuesTool>();
+            builder.Services.AddSingleton<IAgentTool, GetGithubIssueTool>();
+            builder.Services.AddSingleton<AgentToolRegistry>();
+            builder.Services.AddSingleton<IWriteApprovalHandler, AllowAllWriteApprovalHandler>();
+            builder.Services.AddSingleton<AgentService>();
+            builder.Services.AddSingleton(
+                _ => new SkillStore(builder.Environment.ContentRootPath));
 
             var app = builder.Build();
 

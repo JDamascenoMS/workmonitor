@@ -1,7 +1,7 @@
-using FT_MONITOR.Services;
-using FT_MONITOR.Services.Agent;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using WorkMonitor.Agent;
+using WorkMonitor.Core.Services;
 
 namespace FT_MONITOR.Controllers
 {
@@ -74,19 +74,21 @@ namespace FT_MONITOR.Controllers
                 if (skill == null) return NotFound(new { error = $"Skill '{req.SkillId}' not found." });
             }
 
-            string? token = null;
-            try { token = await _devOpsToken.GetTokenAsync(); }
-            catch { /* tools that need it will surface a clearer error */ }
-
             var ctx = new AgentContext
             {
                 UserName  = User.FindFirst("name")?.Value ?? User.Identity?.Name ?? "unknown",
                 UserEmail = User.FindFirst("preferred_username")?.Value ?? "",
-                DevOpsToken = token,
+                DevOpsTokenProvider = cancellationToken =>
+                    _devOpsToken.GetTokenAsync(cancellationToken),
                 DryRun = req.DryRun
             };
 
-            var result = await _agent.RunAsync(req.Prompt, skill, ctx, req.WorkingSet, ct);
+            var result = await _agent.RunAsync(
+                req.Prompt,
+                skill,
+                ctx,
+                req.WorkingSet,
+                cancellationToken: ct);
             return Ok(result);
         }
 

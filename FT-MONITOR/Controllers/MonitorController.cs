@@ -1,5 +1,6 @@
-﻿using FT_MONITOR.Clients;
-using FT_MONITOR.Services;
+﻿using WorkMonitor.Agent;
+using WorkMonitor.Core.Clients;
+using WorkMonitor.Core.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Text;
@@ -317,7 +318,7 @@ namespace FT_MONITOR.Controllers
         public async Task<IActionResult> GetWorkItemTypes([FromQuery] string projectArea = "Project")
         {
             var client = await CreateClientAsync();
-            string areaPath = !FT_MONITOR.Helpers.Constants.ProjectAreaPath.TryGetValue(projectArea, out string val)
+            string areaPath = !WorkMonitor.Core.Helpers.Constants.ProjectAreaPath.TryGetValue(projectArea, out string val)
                 ? throw new Exception("Project area not found.")
                 : val;
 

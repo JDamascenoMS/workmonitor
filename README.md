@@ -4,6 +4,83 @@ Internal feedback / bug / GitHub-issues triage dashboard for the DevDiv tooling
 team. ASP.NET Core (.NET 8) app with Microsoft Entra sign-in, Azure DevOps
 queries, Azure OpenAI summarization, and GitHub Issues integration.
 
+## WorkMonitor conversational CLI
+
+The repository now includes a reusable agent stack and two additional hosts:
+
+- `src/WorkMonitor.Core` contains the Azure DevOps and GitHub integrations.
+- `src/WorkMonitor.Agent` contains the streaming conversation runtime and tools.
+- `src/WorkMonitor.Cli` provides a resumable terminal conversation.
+- `src/WorkMonitor.Mcp` exposes the same tools over the official MCP stdio SDK.
+
+Configure the model using environment variables or the existing .NET user-secrets id:
+
+```powershell
+$env:AzureOpenAI__Endpoint = "https://YOUR-RESOURCE.cognitiveservices.azure.com/"
+$env:AzureOpenAI__DeploymentName = "YOUR-DEPLOYMENT"
+
+# Optional. When omitted, Azure identity authentication is used.
+$env:AzureOpenAI__ApiKey = "YOUR-KEY"
+```
+
+For the CLI, pin the tenant and expected account, then authenticate once:
+
+```powershell
+$env:WorkMonitor__Authentication__TenantId = "YOUR-TENANT-ID"
+$env:WorkMonitor__Authentication__LoginHint = "you@example.com"
+
+dotnet run --project src/WorkMonitor.Cli -- --auth-login
+dotnet run --project src/WorkMonitor.Cli -- --check
+```
+
+The CLI and MCP host share one encrypted persistent token cache for Azure OpenAI
+and Azure DevOps. The non-secret account record is stored beside the session
+database in `%LOCALAPPDATA%\WorkMonitor`. Use `--auth-reset` to clear the saved
+account selection and authenticate again.
+
+Run the CLI:
+
+```powershell
+dotnet run --project src/WorkMonitor.Cli
+```
+
+Useful commands include `/new`, `/sessions`, `/resume`, `/model`, `/tools`,
+`/working-set`, `/dry-run`, `/live`, `/audit`, and `/exit`. Conversations and
+write audit entries are stored in `%LOCALAPPDATA%\WorkMonitor\workmonitor.db`.
+Live writes require confirmation for every operation.
+
+Run the MCP stdio host:
+
+```powershell
+dotnet run --project src/WorkMonitor.Mcp
+```
+
+MCP writes are dry-run by default. To allow them, set
+`WorkMonitor__Mcp__AllowWrites=true`; each write call must still pass
+`confirm=true`.
+
+Publish self-contained Windows executables:
+
+```powershell
+./publish-workmonitor.ps1
+```
+
+The CLI and MCP executables are written under
+`artifacts/workmonitor/<runtime>`, for example
+`artifacts/workmonitor/win-x64`.
+
+### Azure OpenAI authorization
+
+When `AzureOpenAI:ApiKey` is empty, the CLI uses its tenant-pinned persistent
+interactive credential. The web host continues to use `DefaultAzureCredential`
+so it can run under managed identity. The selected identity must have the
+`Cognitive Services OpenAI User` role on the Azure OpenAI resource that owns
+the deployment. A `401 PermissionDenied` response means that role is missing,
+the wrong identity was selected, or the configured endpoint belongs to a
+different resource. The endpoint must be the Azure OpenAI resource endpoint,
+not a Foundry project-management endpoint. Run `--check` to see the saved
+identity, or `--auth-reset` followed by `--auth-login` to select it again.
+
 ## Run it locally
 
 ```powershell

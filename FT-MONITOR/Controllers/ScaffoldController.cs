@@ -1,8 +1,8 @@
-using FT_MONITOR.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.IO.Compression;
 using System.Text.Json;
+using WorkMonitor.Agent;
 
 namespace FT_MONITOR.Controllers
 {
