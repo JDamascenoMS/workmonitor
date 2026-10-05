@@ -93,6 +93,11 @@ namespace WorkMonitor.Core.Clients
             using var resp = await _http.GetAsync(
                 $"repos/{owner}/{repo}/issues/{number}",
                 cancellationToken);
+            if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return null;
+            }
+
             await EnsureSuccessOrThrowAsync(resp, cancellationToken);
             await using var stream = await resp.Content.ReadAsStreamAsync(cancellationToken);
             return await JsonSerializer.DeserializeAsync<GitHubIssue>(
@@ -131,9 +136,19 @@ namespace WorkMonitor.Core.Clients
             string state = "open",
             int page = 1,
             int perPage = 30,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            string itemType = "issue")
         {
-            var q = $"repo:{owner}/{repo} is:issue";
+            var typeQualifier = itemType.ToLowerInvariant() switch
+            {
+                "issue" => " is:issue",
+                "pr" or "pull_request" => " is:pr",
+                "all" => string.Empty,
+                _ => throw new ArgumentException(
+                    "itemType must be issue, pr, or all.",
+                    nameof(itemType))
+            };
+            var q = $"repo:{owner}/{repo}{typeQualifier}";
             if (state == "open" || state == "closed")
                 q += $" is:{state}";
             if (!string.IsNullOrWhiteSpace(query))

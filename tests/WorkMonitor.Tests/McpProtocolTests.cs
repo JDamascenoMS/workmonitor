@@ -31,10 +31,16 @@ public sealed class McpProtocolTests
         var names = tools.Select(tool => tool.Name).ToHashSet(
             StringComparer.OrdinalIgnoreCase);
 
-        Assert.Equal(7, names.Count);
+        Assert.Equal(13, names.Count);
         Assert.Contains("search_work_items", names);
         Assert.Contains("list_project_areas", names);
         Assert.Contains("list_my_work_items", names);
+        Assert.Contains("list_items_mentioning_me", names);
+        Assert.Contains("list_saved_queries", names);
+        Assert.Contains("execute_saved_query", names);
+        Assert.Contains("list_pull_requests_for_my_review", names);
+        Assert.Contains("list_my_recent_activity", names);
+        Assert.Contains("correlate_work_item_with_github", names);
         Assert.Contains("get_work_item", names);
         Assert.Contains("add_work_item_comment", names);
         Assert.Contains("list_github_issues", names);

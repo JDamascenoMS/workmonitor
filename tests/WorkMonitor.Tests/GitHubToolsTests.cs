@@ -43,6 +43,24 @@ public sealed class GitHubToolsTests
             json.IndexOf("comment-30", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task SearchAllIncludesIssuesAndPullRequests()
+    {
+        var configuration = new ConfigurationBuilder().Build();
+        var handler = new SearchCaptureHandler();
+        var client = new GitHubClient(new HttpClient(handler), configuration);
+
+        await client.SearchIssuesAsync(
+            "owner",
+            "repo",
+            "\"AB#42\"",
+            itemType: "all",
+            cancellationToken: CancellationToken.None);
+
+        Assert.DoesNotContain("is%3Aissue", handler.Query, StringComparison.Ordinal);
+        Assert.DoesNotContain("is%3Apr", handler.Query, StringComparison.Ordinal);
+    }
+
     private sealed class GitHubHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(
@@ -77,7 +95,8 @@ public sealed class GitHubToolsTests
                     body = $"comment-{index}",
                     created_at = new DateTime(2026, 1, 1).AddDays(index)
                 });
-            return Task.FromResult(JsonResponse(JsonSerializer.Serialize(comments)));
+            return Task.FromResult(
+                JsonResponse(JsonSerializer.Serialize(comments)));
         }
 
         private static int ParsePage(string query)
@@ -95,11 +114,25 @@ public sealed class GitHubToolsTests
 
             return 1;
         }
-
-        private static HttpResponseMessage JsonResponse(string json)
-            => new(HttpStatusCode.OK)
-            {
-                Content = new StringContent(json, Encoding.UTF8, "application/json")
-            };
     }
+
+    private sealed class SearchCaptureHandler : HttpMessageHandler
+    {
+        public string Query { get; private set; } = string.Empty;
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Query = request.RequestUri?.Query ?? string.Empty;
+            return Task.FromResult(JsonResponse(
+                """{"total_count":0,"items":[]}"""));
+        }
+    }
+
+    private static HttpResponseMessage JsonResponse(string json)
+        => new(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
 }

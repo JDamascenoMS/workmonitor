@@ -1,6 +1,7 @@
 param(
     [string]$Runtime = "win-x64",
-    [string]$OutputDirectory = "artifacts\workmonitor"
+    [string]$OutputDirectory = "artifacts\workmonitor",
+    [string]$Version = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -10,7 +11,19 @@ if ([string]::IsNullOrWhiteSpace($Runtime) -or
     [System.IO.Path]::GetFileName($Runtime) -ne $Runtime) {
     throw "Runtime must be a single runtime identifier such as win-x64."
 }
+if (-not [string]::IsNullOrWhiteSpace($Version) -and
+    $Version -cnotmatch '\A(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?\z') {
+    throw "Version must be a semantic version such as 0.1.0 or 0.1.0-beta.1."
+}
 $runtimeOutput = Join-Path $output $Runtime
+$versionArguments = @()
+if (-not [string]::IsNullOrWhiteSpace($Version)) {
+    $versionArguments = @(
+        "-p:Version=$Version",
+        "-p:InformationalVersion=$Version",
+        "-p:IncludeSourceRevisionInInformationalVersion=false"
+    )
+}
 $dotnetCommand = Get-Command dotnet -ErrorAction SilentlyContinue
 if ($dotnetCommand) {
     $dotnetPath = $dotnetCommand.Source
@@ -44,6 +57,7 @@ function Publish-Host {
         --self-contained true `
         -p:PublishSingleFile=true `
         -p:IncludeNativeLibrariesForSelfExtract=true `
+        @versionArguments `
         --output $staging `
         --nologo
     if ($LASTEXITCODE -ne 0) {

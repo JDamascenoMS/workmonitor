@@ -7,7 +7,15 @@ namespace WorkMonitor.Core.Models
         public List<Fields> columns { get; set; }
         public List<Sorts> sortColumns { get; set; }
         public List<WorkItem> workItems { get; set; }
+        public List<WorkItemLink> workItemRelations { get; set; }
 
+    }
+
+    public class WorkItemLink
+    {
+        public string rel { get; set; }
+        public WorkItem source { get; set; }
+        public WorkItem target { get; set; }
     }
 
     public class Fields

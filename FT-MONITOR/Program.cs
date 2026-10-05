@@ -109,7 +109,9 @@ namespace FT_MONITOR
             builder.Services.AddSingleton<IAgentModel>(
                 services => services.GetRequiredService<AzureOpenAIService>());
             builder.Services.AddSingleton(
-                _ => new ParametersService(builder.Environment.ContentRootPath));
+                _ => new ParametersService(
+                    builder.Environment.ContentRootPath,
+                    builder.Configuration));
             builder.Services.AddSingleton<DevOpsTokenService>();
 
             // Typed HttpClient for the GitHub REST API used by the

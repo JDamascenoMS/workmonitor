@@ -1,0 +1,215 @@
+name: Release WorkMonitor CLI
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_VERSION: 8.0.424
+  SOLUTION: FT-MONITOR.sln
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Validate tag
+        id: version
+        shell: bash
+        run: |
+          export LC_ALL=C
+          version="${GITHUB_REF_NAME#v}"
+          semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+          if [[ ! "$version" =~ $semver ]]; then
+            echo "Tag '$GITHUB_REF_NAME' is not a supported semantic version." >&2
+            exit 1
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Restore
+        run: dotnet restore "${{ env.SOLUTION }}"
+
+      - name: Build
+        run: >-
+          dotnet build "${{ env.SOLUTION }}"
+          --configuration Release
+          --no-restore
+
+      - name: Test
+        run: >-
+          dotnet test "${{ env.SOLUTION }}"
+          --configuration Release
+          --no-build
+
+      - name: Publish Windows
+        shell: pwsh
+        run: >-
+          ./publish-workmonitor.ps1
+          -Runtime win-x64
+          -OutputDirectory artifacts/workmonitor
+          -Version "${{ steps.version.outputs.value }}"
+
+      - name: Publish Linux
+        shell: pwsh
+        run: >-
+          ./publish-workmonitor.ps1
+          -Runtime linux-x64
+          -OutputDirectory artifacts/workmonitor
+          -Version "${{ steps.version.outputs.value }}"
+
+      - name: Package archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          export LC_ALL=C
+          export TZ=UTC
+          version="${{ steps.version.outputs.value }}"
+          source_date_epoch="$(git show -s --format=%ct "$GITHUB_SHA")"
+          mkdir -p release
+
+          touch -d "@${source_date_epoch}" \
+            artifacts/workmonitor/win-x64/cli/workmonitor.exe \
+            artifacts/workmonitor/win-x64/cli/appsettings.json \
+            artifacts/workmonitor/win-x64/mcp/workmonitor-mcp.exe \
+            artifacts/workmonitor/win-x64/mcp/appsettings.json \
+            artifacts/workmonitor/linux-x64/cli/workmonitor \
+            artifacts/workmonitor/linux-x64/cli/appsettings.json \
+            artifacts/workmonitor/linux-x64/mcp/workmonitor-mcp \
+            artifacts/workmonitor/linux-x64/mcp/appsettings.json
+          chmod 0755 \
+            artifacts/workmonitor/win-x64/cli/workmonitor.exe \
+            artifacts/workmonitor/win-x64/mcp/workmonitor-mcp.exe \
+            artifacts/workmonitor/linux-x64/cli/workmonitor \
+            artifacts/workmonitor/linux-x64/mcp/workmonitor-mcp
+          chmod 0644 \
+            artifacts/workmonitor/win-x64/cli/appsettings.json \
+            artifacts/workmonitor/win-x64/mcp/appsettings.json \
+            artifacts/workmonitor/linux-x64/cli/appsettings.json \
+            artifacts/workmonitor/linux-x64/mcp/appsettings.json
+
+          zip -X -9 -q -j "release/workmonitor-cli-${version}-win-x64.zip" \
+            artifacts/workmonitor/win-x64/cli/workmonitor.exe \
+            artifacts/workmonitor/win-x64/cli/appsettings.json
+          zip -X -9 -q -j "release/workmonitor-mcp-${version}-win-x64.zip" \
+            artifacts/workmonitor/win-x64/mcp/workmonitor-mcp.exe \
+            artifacts/workmonitor/win-x64/mcp/appsettings.json
+
+          tar -C artifacts/workmonitor/linux-x64/cli \
+            --sort=name \
+            --mtime="@${source_date_epoch}" \
+            --owner=0 \
+            --group=0 \
+            --numeric-owner \
+            --format=gnu \
+            -cf - \
+            appsettings.json workmonitor |
+            gzip -n -9 > "release/workmonitor-cli-${version}-linux-x64.tar.gz"
+          tar -C artifacts/workmonitor/linux-x64/mcp \
+            --sort=name \
+            --mtime="@${source_date_epoch}" \
+            --owner=0 \
+            --group=0 \
+            --numeric-owner \
+            --format=gnu \
+            -cf - \
+            appsettings.json workmonitor-mcp |
+            gzip -n -9 > "release/workmonitor-mcp-${version}-linux-x64.tar.gz"
+
+          (
+            cd release
+            sha256sum ./*.tar.gz ./*.zip |
+              sort -k2 > SHA256SUMS.txt
+          )
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: workmonitor-${{ github.ref_name }}
+          path: release/*
+          if-no-files-found: error
+
+      - name: Create GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+          version="${{ steps.version.outputs.value }}"
+          prerelease=()
+          version_without_build="${version%%+*}"
+          if [[ "$version_without_build" == *-* ]]; then
+            prerelease+=(--prerelease)
+          fi
+
+          tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag")"
+          object_type="$(jq -r '.object.type' <<< "$tag_ref")"
+          object_sha="$(jq -r '.object.sha' <<< "$tag_ref")"
+          while [[ "$object_type" == "tag" ]]; do
+            tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$object_sha")"
+            object_type="$(jq -r '.object.type' <<< "$tag_object")"
+            object_sha="$(jq -r '.object.sha' <<< "$tag_object")"
+          done
+          if [[ "$object_type" != "commit" || "$object_sha" != "$GITHUB_SHA" ]]; then
+            echo "Tag '$tag' resolves to '$object_sha', not event commit '$GITHUB_SHA'; refusing to publish." >&2
+            exit 1
+          fi
+
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            existing_release="$(
+              gh release view "$tag" --repo "$GITHUB_REPOSITORY" \
+                --json isDraft,assets
+            )"
+            if [[ "$(jq -r '.isDraft' <<< "$existing_release")" != "false" ]]; then
+              echo "Release '$tag' is a draft; complete or remove the interrupted draft before rerunning." >&2
+              exit 1
+            fi
+            for asset in release/*; do
+              asset_name="$(basename "$asset")"
+              if ! jq -e --arg name "$asset_name" \
+                '.assets | any(.name == $name and .state == "uploaded")' \
+                <<< "$existing_release" >/dev/null; then
+                echo "Published release '$tag' is missing uploaded asset '$asset_name'; refusing to accept an incomplete release." >&2
+                exit 1
+              fi
+            done
+            mkdir -p existing-release
+            gh release download "$tag" \
+              --repo "$GITHUB_REPOSITORY" \
+              --pattern SHA256SUMS.txt \
+              --dir existing-release
+            if ! cmp --silent \
+              existing-release/SHA256SUMS.txt \
+              release/SHA256SUMS.txt; then
+              echo "Release '$tag' already exists with different checksums; refusing to replace immutable assets." >&2
+              exit 1
+            fi
+            echo "Release '$tag' already exists with matching checksums."
+          else
+            gh release create "$tag" release/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --target "$GITHUB_SHA" \
+              --generate-notes \
+              --title "WorkMonitor $tag" \
+              "${prerelease[@]}"
+          fi

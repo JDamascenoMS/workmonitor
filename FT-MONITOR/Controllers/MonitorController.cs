@@ -348,12 +348,15 @@ namespace FT_MONITOR.Controllers
             try
             {
                 var client = await CreateClientAsync();
-                var response = await client.GetWorkItemsFromSavedQuery(queryId);
+                var (items, _) = await client.GetWorkItemsFromSavedQuery(
+                    queryId,
+                    maxResults: 200,
+                    HttpContext.RequestAborted);
 
-                if (response?.value == null || !response.value.Any())
+                if (items.Count == 0)
                     return Ok(new List<object>());
 
-                return Ok(response.value);
+                return Ok(items);
             }
             catch (Exception ex)
             {

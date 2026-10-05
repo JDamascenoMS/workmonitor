@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
+using System.Reflection;
 using WorkMonitor.Agent;
 using WorkMonitor.Agent.Tools;
 using WorkMonitor.Core.Clients;
@@ -13,7 +14,11 @@ namespace WorkMonitor.Mcp;
 
 public static class Program
 {
-    public const string Version = "1.0.0";
+    public static string Version =>
+        typeof(Program).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion
+        ?? "0.0.0";
 
     public static async Task<int> Main(string[] args)
     {
@@ -84,12 +89,20 @@ public static class Program
         builder.Services.AddSingleton<TokenCredential>(
             services => services.GetRequiredService<PersistentInteractiveCredential>());
         builder.Services.AddSingleton<DevOpsTokenService>();
+        builder.Services.AddSingleton(
+            new ParametersService(dataDirectory, builder.Configuration));
         builder.Services.AddHttpClient<GitHubClient>();
         builder.Services.AddSingleton<IAgentTool, SearchWorkItemsTool>();
         builder.Services.AddSingleton<IAgentTool, GetWorkItemTool>();
         builder.Services.AddSingleton<IAgentTool, AddWorkItemCommentTool>();
         builder.Services.AddSingleton<IAgentTool, ListProjectAreasTool>();
         builder.Services.AddSingleton<IAgentTool, ListMyWorkItemsTool>();
+        builder.Services.AddSingleton<IAgentTool, ListMyMentionedItemsTool>();
+        builder.Services.AddSingleton<IAgentTool, ListSavedQueriesTool>();
+        builder.Services.AddSingleton<IAgentTool, ExecuteSavedQueryTool>();
+        builder.Services.AddSingleton<IAgentTool, ListPullRequestsForReviewTool>();
+        builder.Services.AddSingleton<IAgentTool, ListMyRecentActivityTool>();
+        builder.Services.AddSingleton<IAgentTool, CorrelateWorkItemWithGitHubTool>();
         builder.Services.AddSingleton<IAgentTool, ListGithubIssuesTool>();
         builder.Services.AddSingleton<IAgentTool, GetGithubIssueTool>();
         builder.Services.AddSingleton<AgentToolRegistry>();

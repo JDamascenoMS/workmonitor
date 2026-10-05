@@ -49,6 +49,27 @@ Useful commands include `/new`, `/sessions`, `/resume`, `/model`, `/tools`,
 write audit entries are stored in `%LOCALAPPDATA%\WorkMonitor\workmonitor.db`.
 Live writes require confirmation for every operation.
 
+Read-only agent capabilities include:
+
+- Assigned and mentioned Azure DevOps work items
+- Configured saved-query discovery and execution
+- Azure DevOps pull requests awaiting the current user's review
+- Recent assigned/mentioned work with newest comments
+- Work-item details and text search
+- GitHub issue listing and details
+- Explicit-reference correlation between DevOps work items and GitHub issues
+
+Recent activity and correlation results preserve their JSON structure under
+an aggregate output-size budget. Partial-result flags expose truncated output
+or candidate windows; use `get_work_item` or `get_github_issue` for additional
+details. Correlation only follows explicit references in configured GitHub
+repositories, and reports when its bounded DevOps comment scan is partial.
+
+The user-specific DevOps tools run in the CLI and MCP hosts, where `@Me`
+resolves through the persisted interactive user credential. They are
+intentionally not registered in the web host, where `@Me` would resolve to the
+application identity.
+
 Run the MCP stdio host:
 
 ```powershell
@@ -68,6 +89,24 @@ Publish self-contained Windows executables:
 The CLI and MCP executables are written under
 `artifacts/workmonitor/<runtime>`, for example
 `artifacts/workmonitor/win-x64`.
+
+### Create a release
+
+Tags matching `v*` trigger the release workflow. Use a semantic version:
+
+```powershell
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The workflow runs the complete build and test suite, publishes versioned
+`win-x64` and `linux-x64` binaries, creates separate CLI and MCP archives,
+generates `SHA256SUMS.txt`, and attaches everything to a GitHub Release.
+Release archives contain only the self-contained executable and the safe
+placeholder `appsettings.json`; account records, token caches, databases, and
+user-secrets remain on the local machine. Configure a repository ruleset for
+`v*` tags that blocks updates and deletion so published release tags remain
+immutable.
 
 ### Azure OpenAI authorization
 

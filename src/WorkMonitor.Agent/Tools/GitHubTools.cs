@@ -4,6 +4,39 @@ using Microsoft.Extensions.Configuration;
 
 namespace WorkMonitor.Agent.Tools
 {
+    internal sealed record ConfiguredGitHubRepository(
+        string Name,
+        string Owner,
+        string Repo);
+
+    internal static class GitHubRepositoryCatalog
+    {
+        public static IReadOnlyList<ConfiguredGitHubRepository> List(
+            IConfiguration configuration)
+        {
+            return configuration
+                .GetSection("GitHub:Repositories")
+                .GetChildren()
+                .Select(section => new ConfiguredGitHubRepository(
+                    section["name"] ?? section["repo"] ?? string.Empty,
+                    section["owner"] ?? string.Empty,
+                    section["repo"] ?? string.Empty))
+                .Where(repository =>
+                    !string.IsNullOrWhiteSpace(repository.Name) &&
+                    !string.IsNullOrWhiteSpace(repository.Owner) &&
+                    !string.IsNullOrWhiteSpace(repository.Repo))
+                .ToList();
+        }
+
+        public static ConfiguredGitHubRepository? Resolve(
+            IConfiguration configuration,
+            string area)
+            => List(configuration).FirstOrDefault(repository =>
+                repository.Name.Equals(
+                    area,
+                    StringComparison.OrdinalIgnoreCase));
+    }
+
     /// <summary>
     /// Lists issues from a configured GitHub repository (area).
     /// </summary>
@@ -44,12 +77,12 @@ namespace WorkMonitor.Agent.Tools
             var labels = args.TryGetProperty("labels", out var l) ? l.GetString() : null;
             var max = args.TryGetProperty("maxResults", out var m) && m.ValueKind == JsonValueKind.Number ? m.GetInt32() : 20;
 
-            var (owner, repo) = ResolveArea(area)
+            var repository = GitHubRepositoryCatalog.Resolve(_config, area)
                 ?? throw new InvalidOperationException($"Unknown GitHub area '{area}'. Configured areas come from GitHub:Repositories in appsettings.");
 
             var (issues, _, _, _) = await _github.ListIssuesAsync(
-                owner,
-                repo,
+                repository.Owner,
+                repository.Repo,
                 state,
                 labels,
                 perPage: Math.Min(max, 100),
@@ -73,21 +106,6 @@ namespace WorkMonitor.Agent.Tools
             };
         }
 
-        private (string Owner, string Repo)? ResolveArea(string area)
-        {
-            foreach (var child in _config.GetSection("GitHub:Repositories").GetChildren())
-            {
-                var name = child["name"];
-                var owner = child["owner"];
-                var repo = child["repo"];
-                if (string.Equals(name, area, StringComparison.OrdinalIgnoreCase) &&
-                    !string.IsNullOrWhiteSpace(owner) && !string.IsNullOrWhiteSpace(repo))
-                {
-                    return (owner!, repo!);
-                }
-            }
-            return null;
-        }
     }
 
     /// <summary>
@@ -124,7 +142,7 @@ namespace WorkMonitor.Agent.Tools
             var area = args.GetProperty("area").GetString() ?? "";
             var number = args.GetProperty("number").GetInt32();
 
-            var resolved = ResolveArea(area)
+            var resolved = GitHubRepositoryCatalog.Resolve(_config, area)
                 ?? throw new InvalidOperationException($"Unknown GitHub area '{area}'.");
 
             var issue = await _github.GetIssueAsync(
@@ -187,22 +205,6 @@ namespace WorkMonitor.Agent.Tools
                         body = Truncate(c.Body, 2000)
                     })
             };
-        }
-
-        private (string Owner, string Repo)? ResolveArea(string area)
-        {
-            foreach (var child in _config.GetSection("GitHub:Repositories").GetChildren())
-            {
-                var name = child["name"];
-                var owner = child["owner"];
-                var repo = child["repo"];
-                if (string.Equals(name, area, StringComparison.OrdinalIgnoreCase) &&
-                    !string.IsNullOrWhiteSpace(owner) && !string.IsNullOrWhiteSpace(repo))
-                {
-                    return (owner!, repo!);
-                }
-            }
-            return null;
         }
 
         private static string? Truncate(string? value, int maxLength)

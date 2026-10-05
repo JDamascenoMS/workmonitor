@@ -103,6 +103,191 @@ public sealed class WorkMonitorMcpTools
     }
 
     [McpServerTool(
+        Name = "list_items_mentioning_me",
+        ReadOnly = true,
+        OpenWorld = true)]
+    [Description(
+        "List active Azure DevOps work items with recent identity-based " +
+        "mentions of the currently authenticated user, newest mention first.")]
+    public Task<object> ListItemsMentioningMeAsync(
+        [Description(
+            "Optional type filter: All, Bug, Feedback, FeedbackTicket, Task, " +
+            "Feature, User Story, Issue, or Epic.")]
+        string workItemType = "All",
+        [Description("Maximum number of items, from 1 to 50.")]
+        int maxResults = 10,
+        CancellationToken cancellationToken = default)
+    {
+        if (maxResults is < 1 or > 50)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxResults),
+                "maxResults must be between 1 and 50.");
+        }
+
+        return ExecuteAsync(
+            "list_items_mentioning_me",
+            new { workItemType, maxResults },
+            dryRun: true,
+            cancellationToken);
+    }
+
+    [McpServerTool(
+        Name = "list_saved_queries",
+        ReadOnly = true)]
+    [Description("List configured Azure DevOps saved queries.")]
+    public Task<object> ListSavedQueriesAsync(
+        CancellationToken cancellationToken = default)
+        => ExecuteAsync(
+            "list_saved_queries",
+            new { },
+            dryRun: true,
+            cancellationToken);
+
+    [McpServerTool(
+        Name = "execute_saved_query",
+        ReadOnly = true,
+        OpenWorld = true)]
+    [Description(
+        "Execute an Azure DevOps saved query by friendly name or query GUID.")]
+    public Task<object> ExecuteSavedQueryAsync(
+        [Description("Friendly saved-query name or query GUID.")]
+        string query,
+        [Description("Maximum number of items, from 1 to 50.")]
+        int maxResults = 20,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            throw new ArgumentException(
+                "Saved query name or id is required.",
+                nameof(query));
+        }
+
+        if (maxResults is < 1 or > 50)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxResults),
+                "maxResults must be between 1 and 50.");
+        }
+
+        return ExecuteAsync(
+            "execute_saved_query",
+            new { query, maxResults },
+            dryRun: true,
+            cancellationToken);
+    }
+
+    [McpServerTool(
+        Name = "list_pull_requests_for_my_review",
+        ReadOnly = true,
+        OpenWorld = true)]
+    [Description(
+        "List active Azure DevOps pull requests requesting review from the " +
+        "currently authenticated user.")]
+    public Task<object> ListPullRequestsForMyReviewAsync(
+        [Description("Maximum number of pull requests, from 1 to 50.")]
+        int maxResults = 20,
+        CancellationToken cancellationToken = default)
+    {
+        if (maxResults is < 1 or > 50)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxResults),
+                "maxResults must be between 1 and 50.");
+        }
+
+        return ExecuteAsync(
+            "list_pull_requests_for_my_review",
+            new { maxResults },
+            dryRun: true,
+            cancellationToken);
+    }
+
+    [McpServerTool(
+        Name = "list_my_recent_activity",
+        ReadOnly = true,
+        OpenWorld = true)]
+    [Description(
+        "List recently changed active Azure DevOps work assigned to or " +
+        "mentioning the current user, with newest comments.")]
+    public Task<object> ListMyRecentActivityAsync(
+        [Description("Lookback window in days, from 1 to 90.")]
+        int days = 14,
+        [Description("Maximum number of work items, from 1 to 10.")]
+        int maxResults = 10,
+        [Description("Newest comments per work item, from 0 to 2.")]
+        int commentsPerItem = 1,
+        CancellationToken cancellationToken = default)
+    {
+        if (days is < 1 or > 90)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(days),
+                "days must be between 1 and 90.");
+        }
+
+        if (maxResults is < 1 or > 10)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxResults),
+                "maxResults must be between 1 and 10.");
+        }
+
+        if (commentsPerItem is < 0 or > 2)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(commentsPerItem),
+                "commentsPerItem must be between 0 and 2.");
+        }
+
+        return ExecuteAsync(
+            "list_my_recent_activity",
+            new { days, maxResults, commentsPerItem },
+            dryRun: true,
+            cancellationToken);
+    }
+
+    [McpServerTool(
+        Name = "correlate_work_item_with_github",
+        ReadOnly = true,
+        OpenWorld = true)]
+    [Description(
+        "Find explicit GitHub issue or pull-request references related to one " +
+        "Azure DevOps work item and return combined evidence.")]
+    public Task<object> CorrelateWorkItemWithGitHubAsync(
+        [Description("Azure DevOps work item id.")]
+        int workItemId,
+        [Description(
+            "Optional configured GitHub area; all configured areas are searched " +
+            "when omitted.")]
+        string? area = null,
+        [Description("Maximum correlations, from 1 to 5.")]
+        int maxResults = 5,
+        CancellationToken cancellationToken = default)
+    {
+        if (workItemId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(workItemId),
+                "workItemId must be positive.");
+        }
+
+        if (maxResults is < 1 or > 5)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxResults),
+                "maxResults must be between 1 and 5.");
+        }
+
+        return ExecuteAsync(
+            "correlate_work_item_with_github",
+            new { workItemId, area, maxResults },
+            dryRun: true,
+            cancellationToken);
+    }
+
+    [McpServerTool(
         Name = "get_work_item",
         ReadOnly = true,
         OpenWorld = true)]

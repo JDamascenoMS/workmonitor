@@ -1,4 +1,5 @@
 using WorkMonitor.Core.Helpers;
+using Microsoft.Extensions.Configuration;
 using System.Text.Json;
 
 namespace WorkMonitor.Core.Services
@@ -8,12 +9,16 @@ namespace WorkMonitor.Core.Services
         private readonly string _filePath;
         private readonly string _queriesFilePath;
         private readonly object _lock = new();
+        private readonly IConfiguration? _configuration;
         private Dictionary<string, string> _areaPaths;
         private Dictionary<string, string> _savedQueries;
 
-        public ParametersService(string contentRootPath)
+        public ParametersService(
+            string contentRootPath,
+            IConfiguration? configuration = null)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(contentRootPath);
+            _configuration = configuration;
             var dataDir = Path.Combine(contentRootPath, "data");
             Directory.CreateDirectory(dataDir);
             _filePath = Path.Combine(dataDir, "parameters.json");
@@ -157,7 +162,24 @@ namespace WorkMonitor.Core.Services
                     return data;
             }
 
-            return new Dictionary<string, string>();
+            var configured = _configuration?
+                .GetSection("AzureDevOps:SavedQueries")
+                .GetChildren()
+                .Select(section => new
+                {
+                    Name = section["name"],
+                    QueryId = section["queryId"]
+                })
+                .Where(item =>
+                    !string.IsNullOrWhiteSpace(item.Name) &&
+                    !string.IsNullOrWhiteSpace(item.QueryId))
+                .ToDictionary(
+                    item => item.Name!,
+                    item => item.QueryId!,
+                    StringComparer.OrdinalIgnoreCase);
+
+            return configured ?? new Dictionary<string, string>(
+                StringComparer.OrdinalIgnoreCase);
         }
 
         private void SaveQueries()
