@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.Reflection;
 using WorkMonitor.Agent;
+using WorkMonitor.Agent.Conversations;
 using WorkMonitor.Agent.Tools;
 using WorkMonitor.Core.Clients;
 using WorkMonitor.Core.Services;

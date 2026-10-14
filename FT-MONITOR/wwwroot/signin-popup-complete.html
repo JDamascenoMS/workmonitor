@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>Signed in</title>
+    <meta name="referrer" content="no-referrer" />
+    <meta http-equiv="Cache-Control" content="no-store" />
+    <title>Completing local development sign-in</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -19,18 +21,23 @@
 </head>
 <body>
     <div class="box">
-        <div class="check">✅</div>
-        <p>Signed in. You can close this window.</p>
+        <div class="check">🔐</div>
+        <p>Completing local development sign-in. WorkMonitor will verify your browser account before confirming access.</p>
+        <p>Localhost-only, read-only mode uses the developer's cached CLI/Azure DevOps identity.</p>
+        <p>If the popup cannot return to your original page, refresh that page or use “Sign in on this page”. <a href="/">Return to WorkMonitor</a>.</p>
     </div>
     <script>
-        // Notify the opener that auth completed, then close.
+        // This is only a completion signal; the opener verifies /api/me.
+        var notified = false;
         try {
             if (window.opener && !window.opener.closed) {
                 window.opener.postMessage({ type: 'ft-monitor-auth', status: 'success' }, window.location.origin);
+                notified = true;
             }
         } catch (e) { /* ignore */ }
-        // Close after a short delay so the user sees the confirmation.
-        setTimeout(function () { try { window.close(); } catch (e) {} }, 600);
+        if (notified) {
+            setTimeout(function () { try { window.close(); } catch (e) {} }, 600);
+        }
     </script>
 </body>
 </html>

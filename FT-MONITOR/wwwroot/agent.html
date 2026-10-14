@@ -3,508 +3,194 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Agent — FT Monitor</title>
+    <title>Agent conversations — FT Monitor</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { height: 100%; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f0f2f5;
-            color: #24292f;
-            display: flex; flex-direction: column;
-        }
-        header {
-            background: #6f42c1; color: #fff;
-            padding: 16px 32px; display: flex;
-            justify-content: space-between; align-items: center; gap: 12px;
-            flex-wrap: wrap;
-        }
-        header h1 { font-size: 1.4rem; font-weight: 600; }
-        header a { color: #ffe1c8; text-decoration: none; font-size: 0.9rem; }
+        * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
+        html, body { height: 100%; margin: 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f3f2f7; color: #24292f; display: flex; flex-direction: column; }
+        button, textarea { font: inherit; }
+        button { cursor: pointer; }
+        button:disabled { opacity: .55; cursor: not-allowed; }
+        a { color: #6034a8; }
+        button, a, textarea, summary { outline-offset: 3px; }
+        :focus-visible { outline: 3px solid #0078d4; }
+        .skip-link { position: absolute; top: -60px; left: 12px; z-index: 2; background: #fff; padding: 12px; border-radius: 6px; }
+        .skip-link:focus { top: 12px; }
+        header { background: #6f42c1; color: #fff; padding: 16px 28px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
+        .brand { display: flex; align-items: center; gap: 12px; }
+        h1 { margin: 0; font-size: 1.35rem; font-weight: 600; }
+        .readonly { border: 1px solid #dac8fb; border-radius: 999px; padding: 4px 10px; background: #59309e; font-size: .76rem; font-weight: 600; white-space: nowrap; }
+        .header-right { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; font-size: .85rem; }
+        header a { color: #fff; text-decoration: none; }
         header a:hover { text-decoration: underline; }
-
-        .layout {
-            display: grid;
-            grid-template-columns: 280px 320px 1fr;
-            gap: 0;
-            flex: 1; min-height: 0;
+        nav { display: flex; flex-wrap: wrap; gap: 14px; }
+        #userInfo { min-height: 22px; }
+        .layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); flex: 1; min-height: 0; }
+        .sidebar { background: #fff; border-right: 1px solid #dedce6; padding: 20px 16px; overflow-y: auto; }
+        .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+        .section-heading h2 { font-size: .95rem; margin: 0; }
+        .button { border: 1px solid #d0c9dc; border-radius: 6px; padding: 8px 12px; background: #fff; color: #413950; font-size: .85rem; font-weight: 600; }
+        .button:hover:not(:disabled) { background: #f4effb; border-color: #8055c5; }
+        .primary { background: #6f42c1; color: #fff; border-color: #6f42c1; }
+        .primary:hover:not(:disabled) { background: #5a32a3; }
+        .new-conversation { width: 100%; margin-bottom: 12px; }
+        .subtle { color: #62606b; font-size: .8rem; line-height: 1.5; }
+        .conversation-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 24px; }
+        .conversation { width: 100%; text-align: left; border: 1px solid transparent; border-radius: 7px; padding: 10px; background: #f7f7fa; color: #24292f; }
+        .conversation:hover { background: #f0eafa; }
+        .conversation[aria-current="true"] { background: #ede3fc; border-color: #9a78ce; }
+        .conversation-title { display: block; font-size: .87rem; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .conversation-meta { display: block; font-size: .73rem; color: #62606b; margin-top: 5px; overflow-wrap: anywhere; }
+        .working-set { border-top: 1px solid #e7e4ed; padding-top: 18px; }
+        .count { display: inline-block; border-radius: 999px; padding: 2px 7px; color: #6034a8; background: #efe7fb; font-size: .72rem; }
+        .ws-toolbar { display: flex; gap: 6px; margin-bottom: 10px; }
+        .ws-toolbar .button { font-size: .75rem; padding: 6px 9px; }
+        .ws-item { border: 1px solid #e2dfe9; border-radius: 6px; padding: 10px; margin-bottom: 7px; background: #fcfbfe; }
+        .ws-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: .8rem; color: #6034a8; font-weight: 600; }
+        .ws-remove { border: 0; background: none; color: #a32934; border-radius: 4px; min-width: 28px; min-height: 28px; }
+        .ws-title { font-size: .81rem; margin: 4px 0; overflow-wrap: anywhere; }
+        .ws-meta { font-size: .71rem; color: #62606b; overflow-wrap: anywhere; line-height: 1.5; }
+        main { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+        .chat-heading { padding: 18px 28px; background: #fff; border-bottom: 1px solid #e2dfe9; display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+        .chat-heading h2 { font-size: 1.05rem; margin: 0 0 4px; overflow-wrap: anywhere; }
+        .chat-heading p { margin: 0; }
+        .status { margin: 14px 28px 0; padding: 11px 14px; border: 1px solid #d8cbe9; border-radius: 7px; background: #f9f6ff; color: #4a3767; font-size: .85rem; line-height: 1.5; }
+        .status.error { background: #fff1f0; border-color: #eeaaa5; color: #8c2028; }
+        .status.warning { background: #fff9ec; border-color: #e3c477; color: #704f0b; }
+        .status .button { margin-top: 8px; }
+        .transcript { flex: 1; min-height: 0; overflow-y: auto; padding: 24px 28px; overscroll-behavior: contain; }
+        .empty { max-width: 660px; margin: 7vh auto 24px; text-align: center; }
+        .empty .eyebrow { color: #6034a8; font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+        .empty h3 { font-size: 1.7rem; font-weight: 600; margin: 12px 0; }
+        .empty p { color: #62606b; line-height: 1.65; font-size: .94rem; }
+        .examples { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
+        .example { text-align: left; font-weight: 400; line-height: 1.5; padding: 14px; }
+        .message { max-width: 950px; margin: 0 auto 16px; border: 1px solid #e0dbe9; border-radius: 10px; padding: 16px 18px; background: #fff; box-shadow: 0 2px 5px rgba(38, 24, 63, .03); }
+        .message.user { background: #edf2fb; border-color: #cddbf1; }
+        .message.warning { background: #fff9ec; border-color: #e3c477; }
+        .message.error, .tool.has-error { background: #fff1f0; border-color: #eeaaa5; }
+        .message-header { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; font-size: .76rem; }
+        .message-role { font-weight: 700; color: #6034a8; }
+        .message-time, .message-state { color: #62606b; }
+        .message.error .message-role, .tool.has-error .message-state { color: #a32934; }
+        .message-content { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; font-size: .92rem; }
+        .tool { padding: 12px 16px; background: #faf9fc; box-shadow: none; }
+        .tool summary { cursor: pointer; font-weight: 600; font-size: .82rem; overflow-wrap: anywhere; }
+        .tool h4 { font-size: .75rem; color: #62606b; margin: 12px 0 5px; }
+        .tool pre { margin: 0; max-height: 300px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: .78rem/1.5 Consolas, 'Courier New', monospace; padding: 10px; background: #fff; border: 1px solid #e0dbe9; border-radius: 5px; }
+        .tool-error { color: #a32934; font-size: .8rem; font-weight: 600; }
+        .composer { background: #fff; border-top: 1px solid #dedce6; padding: 16px 28px 18px; }
+        .composer label { display: block; font-size: .85rem; font-weight: 600; margin-bottom: 8px; }
+        .composer textarea { display: block; width: 100%; min-height: 86px; max-height: 220px; resize: vertical; border: 1px solid #c9c1d7; border-radius: 8px; padding: 12px; font-size: .93rem; line-height: 1.5; color: #24292f; background: #fdfcfe; }
+        .composer textarea:disabled { background: #f3f2f5; }
+        .composer-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        .composer-footer p { margin: 0; font-size: .76rem; color: #62606b; line-height: 1.5; }
+        .composer-actions { display: flex; gap: 8px; }
+        .cancel { color: #a32934; }
+        .noscript { padding: 16px; background: #fff9ec; }
+        @media (max-width: 900px) {
+            header { padding: 14px 18px; }
+            .layout { grid-template-columns: 240px minmax(0, 1fr); }
+            .chat-heading, .composer { padding-left: 18px; padding-right: 18px; }
+            .transcript { padding: 18px; }
+            .status { margin-left: 18px; margin-right: 18px; }
+            .examples { grid-template-columns: 1fr; }
         }
-        aside {
-            background: #fff; border-right: 1px solid #e0e0e0;
-            display: flex; flex-direction: column; padding: 16px;
-            overflow-y: auto;
+        @media (max-width: 640px) {
+            html, body { height: auto; min-height: 100%; }
+            .layout { display: flex; flex-direction: column; }
+            .sidebar { border-right: 0; border-bottom: 1px solid #dedce6; max-height: 300px; padding: 14px 18px; }
+            .conversation-list { max-height: 140px; overflow-y: auto; margin-bottom: 16px; }
+            .working-set { padding-top: 12px; }
+            main { min-height: 70vh; }
+            .transcript { max-height: 65vh; min-height: 240px; }
+            .empty { margin-top: 20px; }
+            .empty h3 { font-size: 1.3rem; }
+            .message { padding: 12px; }
+            .composer-actions { margin-left: auto; }
+            .header-right { gap: 10px; }
         }
-        aside h2 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
-
-        .ws-item {
-            border: 1px solid #e0e0e0; border-radius: 6px;
-            padding: 8px 10px; margin-bottom: 6px;
-            background: #fafafa; font-size: 0.85rem;
-            position: relative;
+        @media (prefers-reduced-motion: no-preference) {
+            .message { animation: appear .16s ease-out; }
+            @keyframes appear { from { opacity: .6; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
         }
-        .ws-item .head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
-        .ws-item .id { font-weight: 600; color: #6f42c1; }
-        .ws-item .title { display: block; margin-top: 4px; color: #24292f; }
-        .ws-item .meta { display: block; font-size: 0.75rem; color: #57606a; margin-top: 4px; }
-        .ws-item .remove {
-            border: none; background: none; color: #cf222e; cursor: pointer;
-            font-size: 0.95rem; padding: 0 2px;
-        }
-        .ws-empty { color: #8c959f; font-size: 0.85rem; padding: 8px 0; }
-        .ws-toolbar {
-            display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;
-        }
-        .ws-toolbar button {
-            font-size: 0.78rem; padding: 4px 8px;
-            border: 1px solid #d0d7de; background: #f6f8fa; border-radius: 4px;
-            cursor: pointer;
-        }
-        .ws-toolbar button:hover { background: #ede1ff; border-color: #6f42c1; }
-        .ws-tag {
-            display: inline-block; padding: 1px 8px; border-radius: 999px;
-            font-size: 11px; font-weight: 600; background: #ede1ff; color: #6f42c1;
-        }
-        .skill {
-            border: 1px solid #e0e0e0; border-radius: 6px;
-            padding: 8px 10px; margin-bottom: 8px; cursor: pointer;
-            background: #fafafa;
-        }
-        .skill:hover { background: #f0e6ff; border-color: #6f42c1; }
-        .skill.active { background: #ede1ff; border-color: #6f42c1; box-shadow: 0 0 0 1px #6f42c1; }
-        .skill .name { font-weight: 600; font-size: 0.92rem; color: #6f42c1; }
-        .skill .desc { font-size: 0.82rem; color: #555; margin-top: 2px; }
-        .skill .tools { font-size: 0.75rem; color: #888; margin-top: 4px; }
-        .skill .delete {
-            float: right; color: #cf222e; cursor: pointer; font-size: 0.85rem;
-            border: none; background: none;
-        }
-
-        .new-skill {
-            margin-top: 12px; border-top: 1px dashed #e0e0e0; padding-top: 12px;
-        }
-        .new-skill summary { cursor: pointer; font-weight: 600; color: #6f42c1; font-size: 0.9rem; }
-        .new-skill input, .new-skill textarea, .new-skill select {
-            width: 100%; padding: 6px 8px; margin-top: 6px;
-            border: 1px solid #d0d7de; border-radius: 4px; font-size: 0.85rem;
-            font-family: inherit;
-        }
-        .new-skill textarea { min-height: 60px; resize: vertical; }
-        .new-skill button {
-            margin-top: 8px; width: 100%; padding: 8px;
-            background: #6f42c1; color: #fff; border: none; border-radius: 4px;
-            cursor: pointer; font-weight: 600;
-        }
-        .new-skill button:hover { background: #5a32a3; }
-
-        main {
-            display: flex; flex-direction: column;
-            min-height: 0; overflow: hidden;
-        }
-        .transcript {
-            flex: 1; overflow-y: auto; padding: 24px 32px;
-        }
-        .turn {
-            margin-bottom: 16px;
-            padding: 12px 16px; border-radius: 8px;
-            font-size: 0.92rem; line-height: 1.5;
-        }
-        .turn.user { background: #e1ecf4; border: 1px solid #bcd5ed; }
-        .turn.assistant { background: #fff; border: 1px solid #e0e0e0; white-space: pre-wrap; }
-        .turn.tool { background: #fff8e1; border: 1px solid #f0c948; font-family: 'Consolas', monospace; font-size: 0.82rem; }
-        .turn .role {
-            font-weight: 600; color: #6f42c1;
-            font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.4px;
-            margin-bottom: 4px;
-        }
-        .turn.tool details summary {
-            cursor: pointer; font-family: 'Segoe UI', sans-serif; font-weight: 600;
-            color: #57606a; font-size: 0.85rem;
-        }
-        .turn.tool pre {
-            margin-top: 6px; max-height: 240px; overflow: auto;
-            background: #fff; padding: 8px; border-radius: 4px; border: 1px solid #f0c948;
-        }
-
-        .composer {
-            display: flex; gap: 8px; padding: 16px 32px;
-            border-top: 1px solid #e0e0e0; background: #fff;
-            align-items: flex-end;
-        }
-        .composer textarea {
-            flex: 1; padding: 10px; font-size: 0.95rem;
-            border: 1px solid #d0d7de; border-radius: 6px;
-            min-height: 56px; resize: vertical; font-family: inherit;
-        }
-        .composer .actions {
-            display: flex; flex-direction: column; gap: 6px; align-items: flex-end;
-        }
-        .composer label { font-size: 0.82rem; color: #57606a; user-select: none; }
-        .composer button {
-            padding: 10px 20px; background: #6f42c1; color: #fff;
-            border: none; border-radius: 6px; font-weight: 600; cursor: pointer;
-        }
-        .composer button:hover:not(:disabled) { background: #5a32a3; }
-        .composer button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .audit {
-            margin: 12px 32px; padding: 8px 12px;
-            background: #fdf2e9; border: 1px solid #f0c948; border-radius: 6px;
-            font-size: 0.82rem; color: #6c4500;
-        }
-        .audit ul { margin: 4px 0 0 16px; }
-
-        .empty {
-            text-align: center; color: #8c959f; padding: 60px 20px;
-        }
-        .empty h2 { font-weight: 400; margin-bottom: 8px; color: #24292f; }
     </style>
-    <script src="/js/msal-auth.js"></script>
-    <script src="/js/agent-working-set.js"></script>
+    <script src="/js/msal-auth.js" defer></script>
+    <script src="/js/agent-working-set.js" defer></script>
+    <script src="/js/agent-chat.js" defer></script>
 </head>
 <body>
+    <a class="skip-link" href="#prompt">Skip to message input</a>
     <header>
-        <h1>🤖 Agent</h1>
-        <div style="display:flex;align-items:center;gap:16px;">
-            <div id="userInfo" style="font-size:0.9rem;"></div>
-            <a href="/index.html">← Back to home</a>
+        <div class="brand">
+            <h1>Agent conversations</h1>
+            <span class="readonly">Read-only</span>
+        </div>
+        <div class="header-right">
+            <div id="userInfo">Checking sign-in…</div>
+            <nav aria-label="Dashboards">
+                <a href="/index.html">Home</a>
+                <a href="/my-dashboard.html">My Dashboard</a>
+                <a href="/top-bugs.html">Bugs</a>
+                <a href="/top-feedback.html">Feedback</a>
+            </nav>
         </div>
     </header>
-
+    <noscript><p class="noscript">Enable JavaScript to sign in and use streaming conversations. Dashboard links remain available above.</p></noscript>
     <div class="layout">
-        <aside>
-            <h2>Working set <span id="wsCountTag" class="ws-tag" style="display:none;"></span></h2>
-            <div class="ws-toolbar">
-                <button id="wsClear" title="Remove all items">Clear all</button>
-                <button id="wsRefresh" title="Reload from storage">↻</button>
-            </div>
-            <div id="wsList"></div>
-            <p style="margin-top:12px;font-size:0.78rem;color:#666;">
-                Items added from the
-                <a href="/top-bugs.html">Bugs</a> or
-                <a href="/top-feedback.html">Feedback</a> pages via the
-                <em>"Send selected to Agent"</em> button.
-            </p>
-        </aside>
-
-        <aside>
-            <h2>Skills</h2>
-            <div id="skillList"></div>
-
-            <details class="new-skill">
-                <summary>+ New skill</summary>
-                <input id="skName" placeholder="Skill name (e.g. 'Triage Bug')" />
-                <input id="skDesc" placeholder="Short description" />
-                <textarea id="skPrompt" placeholder="System prompt addendum — extra instructions for the agent when this skill is selected."></textarea>
-                <select id="skTools" multiple size="6"></select>
-                <small style="color:#666;font-size:0.75rem;">Hold Ctrl/Cmd to select multiple. Empty = all tools allowed.</small>
-                <button id="skCreate">Create skill</button>
-                <div id="skCreateMsg" style="font-size:0.8rem;margin-top:6px;color:#cf222e;"></div>
-            </details>
-
-            <div style="margin-top:20px;padding-top:12px;border-top:1px dashed #e0e0e0;">
-                <h2>Available tools</h2>
-                <div id="toolList" style="font-size:0.8rem;color:#555;"></div>
-            </div>
-        </aside>
-
-        <main>
-            <div class="transcript" id="transcript">
-                <div class="empty">
-                    <h2>Ask the agent anything about DevDiv.</h2>
-                    <p>It can search work items, read GitHub issues, summarize, and (with dry-run off) post comments.</p>
+        <aside class="sidebar" aria-label="Conversations and context">
+            <section aria-labelledby="conversationsHeading">
+                <div class="section-heading">
+                    <h2 id="conversationsHeading">Your conversations</h2>
+                    <button type="button" id="refreshConversations" class="button" aria-label="Refresh conversations" disabled>Refresh</button>
                 </div>
-            </div>
-
-            <div class="composer">
-                <textarea id="prompt" placeholder="e.g. 'Find open feedback bugs about debug performance in the Project area and summarize the top 3.'"></textarea>
-                <div class="actions">
-                    <label><input type="checkbox" id="dryRun" checked /> Dry run (don't actually post)</label>
-                    <span id="activeSkill" style="font-size:0.78rem;color:#6f42c1;"></span>
-                    <button id="sendBtn">Send</button>
+                <button type="button" id="newConversation" class="button primary new-conversation" disabled>+ New conversation</button>
+                <div id="conversationList" class="conversation-list" aria-busy="false">
+                    <p class="subtle">Sign in to see your saved conversations.</p>
                 </div>
+                <button type="button" id="loadOlderConversations" class="button new-conversation" aria-controls="conversationList" hidden disabled>Load older conversations</button>
+            </section>
+            <section class="working-set" aria-labelledby="workingSetHeading">
+                <div class="section-heading">
+                    <h2 id="workingSetHeading">Working set <span id="wsCountTag" class="count" hidden></span></h2>
+                </div>
+                <div class="ws-toolbar">
+                    <button type="button" id="wsClear" class="button" title="Remove all locally pinned items">Clear all</button>
+                    <button type="button" id="wsRefresh" class="button" title="Reload locally pinned items">Refresh</button>
+                </div>
+                <div id="wsList"></div>
+                <p class="subtle">Pin items from <a href="/top-bugs.html">Bugs</a> or <a href="/top-feedback.html">Feedback</a> using “Send selected to Agent”. This context is included with your next message.</p>
+            </section>
+        </aside>
+        <main aria-labelledby="conversationTitle">
+            <div class="chat-heading">
+                <div>
+                    <h2 id="conversationTitle">New conversation</h2>
+                    <p id="conversationMeta" class="subtle">Search, investigate, and summarize. No work items or issues are changed.</p>
+                </div>
+                <button type="button" id="reloadConversation" class="button" disabled>Reload</button>
             </div>
+            <div id="status" class="status" role="status" aria-live="polite" aria-atomic="true">
+                <div id="statusMessage">Checking your session…</div>
+                <button type="button" id="statusSignIn" class="button" hidden>Sign in with Microsoft</button>
+            </div>
+            <div id="transcript" class="transcript" role="log" aria-label="Conversation messages" aria-live="off" aria-busy="false" tabindex="0"></div>
+            <form id="composer" class="composer">
+                <label for="prompt">Message the agent</label>
+                <textarea id="prompt" placeholder="Ask about work items, feedback, or GitHub issues…" aria-describedby="composerHint contextHint" maxlength="16000" disabled></textarea>
+                <div class="composer-footer">
+                    <div>
+                        <p id="composerHint">Ctrl+Enter or ⌘+Enter to send · Read-only tools only</p>
+                        <p id="contextHint">No pinned items included.</p>
+                    </div>
+                    <div class="composer-actions">
+                        <button type="button" id="cancelBtn" class="button cancel" hidden>Cancel response</button>
+                        <button type="submit" id="sendBtn" class="button primary" disabled>Send message</button>
+                    </div>
+                </div>
+            </form>
         </main>
     </div>
-
-    <script>
-        let skills = [];
-        let tools = [];
-        let activeSkillId = null;
-        let workingSet = [];
-
-        // --- init ---
-        (async function init() {
-            renderWorkingSet();
-            await Promise.all([loadSkills(), loadTools()]);
-        })();
-
-        // ----- working set -----
-        function renderWorkingSet() {
-            workingSet = AgentWorkingSet.read();
-            const list = document.getElementById('wsList');
-            const tag = document.getElementById('wsCountTag');
-
-            if (workingSet.length) {
-                tag.textContent = workingSet.length;
-                tag.style.display = 'inline-block';
-            } else {
-                tag.style.display = 'none';
-            }
-
-            if (!workingSet.length) {
-                list.innerHTML = '<div class="ws-empty">No items pinned yet. Pick rows on the Bugs or Feedback page and click "Send selected to Agent".</div>';
-                return;
-            }
-
-            list.innerHTML = workingSet.map(w => `
-                <div class="ws-item" data-id="${w.id}">
-                    <div class="head">
-                        <span class="id">#${w.id}</span>
-                        <button class="remove" title="Remove from working set">✕</button>
-                    </div>
-                    <span class="title">${escapeHtml(w.title || '')}</span>
-                    <span class="meta">${escapeHtml(w.type || 'WorkItem')} • ${escapeHtml(w.state || '?')} • P${w.priority ?? '?'} • ${escapeHtml(w.assignedTo || 'Unassigned')}</span>
-                    ${w.areaPath ? `<span class="meta">${escapeHtml(w.areaPath)}</span>` : ''}
-                </div>
-            `).join('');
-
-            list.querySelectorAll('.ws-item .remove').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const id = parseInt(btn.closest('.ws-item').dataset.id, 10);
-                    AgentWorkingSet.remove(id);
-                    renderWorkingSet();
-                });
-            });
-        }
-
-        document.getElementById('wsClear').addEventListener('click', () => {
-            if (!workingSet.length) return;
-            if (!confirm('Clear the entire working set?')) return;
-            AgentWorkingSet.clear();
-            renderWorkingSet();
-        });
-        document.getElementById('wsRefresh').addEventListener('click', renderWorkingSet);
-        // Re-render if another tab updated the working set.
-        window.addEventListener('storage', ev => {
-            if (ev.key === AgentWorkingSet.KEY) renderWorkingSet();
-        });
-
-        async function loadSkills() {
-            try {
-                const r = await authFetch('/api/agent/skills');
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                skills = await r.json();
-                renderSkills();
-            } catch (err) {
-                document.getElementById('skillList').innerHTML =
-                    `<div style="color:#cf222e;font-size:0.85rem;">Failed to load skills: ${escapeHtml(err.message)}</div>`;
-            }
-        }
-
-        async function loadTools() {
-            try {
-                const r = await authFetch('/api/agent/tools');
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                tools = await r.json();
-                renderTools();
-            } catch (err) {
-                document.getElementById('toolList').textContent = 'Failed to load tools: ' + err.message;
-            }
-        }
-
-        function renderSkills() {
-            const list = document.getElementById('skillList');
-            if (!skills.length) {
-                list.innerHTML = '<div style="font-size:0.85rem;color:#8c959f;">No skills yet. Create one below.</div>';
-                return;
-            }
-            list.innerHTML = skills.map(s => `
-                <div class="skill ${s.id === activeSkillId ? 'active' : ''}" data-id="${s.id}">
-                    <button class="delete" data-del="${s.id}" title="Delete">✕</button>
-                    <div class="name">${escapeHtml(s.name)}</div>
-                    <div class="desc">${escapeHtml(s.description || '')}</div>
-                    <div class="tools">${(s.suggestedTools || []).map(escapeHtml).join(', ') || 'all tools'}</div>
-                </div>
-            `).join('');
-
-            list.querySelectorAll('.skill').forEach(el => {
-                el.addEventListener('click', ev => {
-                    if (ev.target.dataset.del) return;
-                    const id = el.dataset.id;
-                    activeSkillId = (activeSkillId === id) ? null : id;
-                    renderSkills();
-                    updateActiveSkillLabel();
-                });
-            });
-            list.querySelectorAll('button.delete').forEach(b => {
-                b.addEventListener('click', async ev => {
-                    ev.stopPropagation();
-                    const id = b.dataset.del;
-                    if (!confirm('Delete this skill?')) return;
-                    const r = await authFetch('/api/agent/skills/' + id, { method: 'DELETE' });
-                    if (r.status === 204) {
-                        if (activeSkillId === id) activeSkillId = null;
-                        await loadSkills();
-                        updateActiveSkillLabel();
-                    }
-                });
-            });
-        }
-
-        function renderTools() {
-            const tdiv = document.getElementById('toolList');
-            tdiv.innerHTML = tools.map(t =>
-                `<div style="margin-bottom:6px;">
-                    <strong style="color:${t.isWriteTool ? '#cf222e' : '#1f883d'};">${escapeHtml(t.name)}</strong>
-                    ${t.isWriteTool ? '<span style="font-size:0.7rem;color:#cf222e;">(writes)</span>' : ''}
-                    <div style="font-size:0.78rem;color:#666;">${escapeHtml(t.description)}</div>
-                </div>`).join('');
-
-            const sel = document.getElementById('skTools');
-            sel.innerHTML = tools.map(t =>
-                `<option value="${escapeAttr(t.name)}">${escapeHtml(t.name)}${t.isWriteTool ? ' (writes)' : ''}</option>`
-            ).join('');
-        }
-
-        function updateActiveSkillLabel() {
-            const lbl = document.getElementById('activeSkill');
-            const s = skills.find(x => x.id === activeSkillId);
-            lbl.textContent = s ? `Skill: ${s.name}` : '';
-        }
-
-        // --- create skill ---
-        document.getElementById('skCreate').addEventListener('click', async () => {
-            const msg = document.getElementById('skCreateMsg');
-            msg.textContent = '';
-            const body = {
-                name: document.getElementById('skName').value.trim(),
-                description: document.getElementById('skDesc').value.trim(),
-                systemPromptAddendum: document.getElementById('skPrompt').value.trim(),
-                suggestedTools: Array.from(document.getElementById('skTools').selectedOptions).map(o => o.value)
-            };
-            if (!body.name) { msg.textContent = 'Name is required.'; return; }
-            try {
-                const r = await authFetch('/api/agent/skills', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
-                if (!r.ok) {
-                    const err = await r.json().catch(() => ({}));
-                    throw new Error(err.error || ('HTTP ' + r.status));
-                }
-                document.getElementById('skName').value = '';
-                document.getElementById('skDesc').value = '';
-                document.getElementById('skPrompt').value = '';
-                document.getElementById('skTools').selectedIndex = -1;
-                await loadSkills();
-            } catch (err) {
-                msg.textContent = 'Failed: ' + err.message;
-            }
-        });
-
-        // --- send ---
-        document.getElementById('sendBtn').addEventListener('click', sendPrompt);
-        document.getElementById('prompt').addEventListener('keydown', ev => {
-            if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) sendPrompt();
-        });
-
-        async function sendPrompt() {
-            const promptEl = document.getElementById('prompt');
-            const sendBtn = document.getElementById('sendBtn');
-            const text = promptEl.value.trim();
-            if (!text) return;
-
-            appendTurn('user', text);
-            promptEl.value = '';
-            sendBtn.disabled = true;
-
-            const thinking = appendTurn('assistant', '⏳ Thinking…');
-
-            try {
-                const r = await authFetch('/api/agent/run', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        prompt: text,
-                        skillId: activeSkillId,
-                        dryRun: document.getElementById('dryRun').checked,
-                        workingSet: workingSet
-                    })
-                });
-                if (!r.ok) {
-                    const err = await r.json().catch(() => ({ error: 'HTTP ' + r.status }));
-                    throw new Error(err.error || err.message || ('HTTP ' + r.status));
-                }
-                const data = await r.json();
-                thinking.remove();
-                renderTurns(data);
-            } catch (err) {
-                thinking.innerHTML = `<div class="role">error</div>${escapeHtml(err.message)}`;
-                thinking.classList.remove('assistant');
-                thinking.style.background = '#ffebe9';
-                thinking.style.borderColor = '#ff8182';
-            } finally {
-                sendBtn.disabled = false;
-            }
-        }
-
-        function renderTurns(result) {
-            const t = document.getElementById('transcript');
-            (result.transcript || []).forEach(entry => {
-                if (entry.role === 'tool_call') {
-                    appendTurn('tool',
-                        `<details><summary>🔧 ${escapeHtml(entry.toolName)} — call</summary>
-                            <pre>${escapeHtml(entry.toolArgs || '{}')}</pre>
-                        </details>`, /*raw=*/true);
-                } else if (entry.role === 'tool_result') {
-                    appendTurn('tool',
-                        `<details><summary>↪️ ${escapeHtml(entry.toolName)} — result</summary>
-                            <pre>${escapeHtml(entry.content || '')}</pre>
-                        </details>`, /*raw=*/true);
-                } else if (entry.role === 'assistant') {
-                    appendTurn('assistant', entry.content || '');
-                } else if (entry.role === 'error') {
-                    appendTurn('assistant', '⚠️ ' + (entry.content || ''));
-                }
-            });
-
-            if ((result.auditLog || []).length) {
-                const div = document.createElement('div');
-                div.className = 'audit';
-                div.innerHTML = '<strong>Audit log</strong><ul>' +
-                    result.auditLog.map(e => `<li>${escapeHtml(e)}</li>`).join('') +
-                    '</ul>';
-                t.appendChild(div);
-            }
-            t.scrollTop = t.scrollHeight;
-        }
-
-        function appendTurn(role, content, raw) {
-            const t = document.getElementById('transcript');
-            // remove placeholder on first turn
-            const empty = t.querySelector('.empty');
-            if (empty) empty.remove();
-
-            const el = document.createElement('div');
-            el.className = 'turn ' + role;
-            const roleLbl = role === 'user' ? 'you' : role;
-            el.innerHTML = `<div class="role">${escapeHtml(roleLbl)}</div>${raw ? content : escapeHtml(content)}`;
-            t.appendChild(el);
-            t.scrollTop = t.scrollHeight;
-            return el;
-        }
-
-        function escapeHtml(text) {
-            if (text === null || text === undefined) return '';
-            const div = document.createElement('div');
-            div.textContent = String(text);
-            return div.innerHTML;
-        }
-        function escapeAttr(text) {
-            return String(text).replace(/"/g, '&quot;');
-        }
-
-        renderUserInfo('userInfo', { linkColor: '#ffe1c8' });
-    </script>
 </body>
 </html>

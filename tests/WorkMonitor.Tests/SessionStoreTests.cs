@@ -1,5 +1,5 @@
 using WorkMonitor.Agent;
-using WorkMonitor.Cli;
+using WorkMonitor.Agent.Conversations;
 
 namespace WorkMonitor.Tests;
 

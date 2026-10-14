@@ -3,6 +3,10 @@
 ###############################################################################
 * text=auto
 
+# Preserve the exact vendor bytes used by browser integrity checks.
+FT-MONITOR/wwwroot/vendor/msal-browser/**/*.min.js -text
+FT-MONITOR/wwwroot/vendor/msal-browser/**/LICENSE -text
+
 ###############################################################################
 # Set default behavior for command prompt diff.
 #

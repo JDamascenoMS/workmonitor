@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using WorkMonitor.Agent;
+using WorkMonitor.Agent.Conversations;
 using WorkMonitor.Core.Services;
 
 namespace WorkMonitor.Cli;

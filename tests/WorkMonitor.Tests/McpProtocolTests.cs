@@ -7,9 +7,7 @@ public sealed class McpProtocolTests
     [Fact]
     public async Task StdioServerInitializesAndListsSharedTools()
     {
-        var serverPath = Path.Combine(
-            AppContext.BaseDirectory,
-            "workmonitor-mcp.dll");
+        var serverPath = FindServerAssembly();
         Assert.True(
             File.Exists(serverPath),
             $"MCP server assembly was not found at '{serverPath}'.");
@@ -20,7 +18,7 @@ public sealed class McpProtocolTests
                 Name = "WorkMonitor test server",
                 Command = FindDotnetHost(),
                 Arguments = new[] { serverPath },
-                WorkingDirectory = AppContext.BaseDirectory
+                WorkingDirectory = Path.GetDirectoryName(serverPath)
             });
         await using var client = await McpClient.CreateAsync(
             transport,
@@ -45,6 +43,26 @@ public sealed class McpProtocolTests
         Assert.Contains("add_work_item_comment", names);
         Assert.Contains("list_github_issues", names);
         Assert.Contains("get_github_issue", names);
+    }
+
+    private static string FindServerAssembly()
+    {
+        var output = new DirectoryInfo(AppContext.BaseDirectory);
+        var configuration = output.Parent?.Name
+            ?? throw new InvalidOperationException("Test build configuration could not be determined.");
+        var directory = output;
+        while (directory != null &&
+               !File.Exists(Path.Combine(directory.FullName, "FT-MONITOR.sln")))
+        {
+            directory = directory.Parent;
+        }
+
+        if (directory == null)
+            throw new InvalidOperationException("The solution directory could not be located.");
+
+        return Path.Combine(
+            directory.FullName, "src", "WorkMonitor.Mcp", "bin",
+            configuration, output.Name, "workmonitor-mcp.dll");
     }
 
     private static string FindDotnetHost()
