@@ -1,6 +1,7 @@
 ﻿using WorkMonitor.Agent;
 using WorkMonitor.Core.Clients;
 using WorkMonitor.Core.Services;
+using FT_MONITOR.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Text;
@@ -12,9 +13,9 @@ namespace FT_MONITOR.Controllers
     public class MonitorController : ControllerBase
     {
         private readonly AzureOpenAIService _aiService;
-        private readonly DevOpsTokenService _devOpsTokenService;
+        private readonly IWebDevOpsTokenService _devOpsTokenService;
 
-        public MonitorController(AzureOpenAIService aiService, DevOpsTokenService devOpsTokenService)
+        public MonitorController(AzureOpenAIService aiService, IWebDevOpsTokenService devOpsTokenService)
         {
             _aiService = aiService;
             _devOpsTokenService = devOpsTokenService;
@@ -22,7 +23,7 @@ namespace FT_MONITOR.Controllers
 
         private async Task<string> GetAccessTokenAsync()
         {
-            return await _devOpsTokenService.GetTokenAsync();
+            return await _devOpsTokenService.GetTokenAsync(HttpContext.RequestAborted);
         }
 
         private async Task<MonitorService> CreateServiceAsync()

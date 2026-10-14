@@ -1,0 +1,25 @@
+{
+  "package": "@azure/msal-browser",
+  "version": "5.25.0",
+  "license": "MIT",
+  "repository": "https://github.com/AzureAD/microsoft-authentication-library-for-js",
+  "distribution": "https://unpkg.com/@azure/msal-browser@5.25.0/",
+  "manifest": "https://unpkg.com/@azure/msal-browser@5.25.0/?meta",
+  "files": {
+    "msal-browser.min.js": {
+      "packagePath": "lib/msal-browser.min.js",
+      "bytes": 290775,
+      "integrity": "sha256-DnUo1gmU2EzBQ5cRcsQaUpQnL6jx74554sMX3NCxyf8="
+    },
+    "msal-redirect-bridge.min.js": {
+      "packagePath": "lib/redirect-bridge/msal-redirect-bridge.min.js",
+      "bytes": 6656,
+      "integrity": "sha256-FxtoBwkCBzaRKNO78aUPmKk6hNF45IUgJrgdXCYQPdQ="
+    },
+    "LICENSE": {
+      "packagePath": "LICENSE",
+      "bytes": 1094,
+      "integrity": "sha256-xUSt+PDUNFPZ/fbBHaGWBdEtiYBqeHBlMWm4zJf1u1M="
+    }
+  }
+}

@@ -1,7 +1,6 @@
 using Microsoft.Data.Sqlite;
-using WorkMonitor.Agent;
 
-namespace WorkMonitor.Cli;
+namespace WorkMonitor.Agent.Conversations;
 
 public sealed record SessionSummary(
     string Id,
@@ -58,7 +57,8 @@ public sealed class SessionStore
                 model TEXT NOT NULL,
                 summary TEXT NULL,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                owner_id TEXT NULL
             );
 
             CREATE TABLE IF NOT EXISTS messages (
@@ -82,12 +82,61 @@ public sealed class SessionStore
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
+
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var columns = connection.CreateCommand();
+        columns.Transaction = (SqliteTransaction)transaction;
+        columns.CommandText = "PRAGMA table_info(sessions);";
+        var hasOwnerColumn = false;
+        await using (var reader = await columns.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                if (string.Equals(reader.GetString(1), "owner_id", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasOwnerColumn = true;
+                    break;
+                }
+            }
+        }
+
+        var migration = connection.CreateCommand();
+        migration.Transaction = (SqliteTransaction)transaction;
+        migration.CommandText = hasOwnerColumn
+            ? """
+              CREATE INDEX IF NOT EXISTS ix_sessions_owner_updated_at
+                  ON sessions(owner_id, updated_at DESC);
+              """
+            : """
+              ALTER TABLE sessions ADD COLUMN owner_id TEXT NULL;
+              CREATE INDEX IF NOT EXISTS ix_sessions_owner_updated_at
+                  ON sessions(owner_id, updated_at DESC);
+              """;
+        await migration.ExecuteNonQueryAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
-    public async Task<StoredSession> CreateAsync(
+    public Task<StoredSession> CreateAsync(
         string model,
         string title = "New conversation",
         CancellationToken cancellationToken = default)
+        => CreateCoreAsync(null, model, title, cancellationToken);
+
+    public Task<StoredSession> CreateForOwnerAsync(
+        string ownerId,
+        string model,
+        string title = "New conversation",
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(ownerId);
+        return CreateCoreAsync(ownerId, model, title, ct);
+    }
+
+    private async Task<StoredSession> CreateCoreAsync(
+        string? ownerId,
+        string model,
+        string title,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(model);
         var id = Guid.NewGuid().ToString("N");
@@ -97,9 +146,10 @@ public sealed class SessionStore
         var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO sessions (id, title, model, summary, created_at, updated_at)
-            VALUES ($id, $title, $model, NULL, $createdAt, $updatedAt);
+            INSERT INTO sessions (id, title, model, summary, created_at, updated_at, owner_id)
+            VALUES ($id, $title, $model, NULL, $createdAt, $updatedAt, $ownerId);
             """;
+        AddOwnerParameter(command, ownerId);
         command.Parameters.AddWithValue("$id", id);
         command.Parameters.AddWithValue("$title", title);
         command.Parameters.AddWithValue("$model", model);
@@ -117,9 +167,24 @@ public sealed class SessionStore
             Array.Empty<AgentConversationMessage>());
     }
 
-    public async Task<StoredSession?> LoadAsync(
+    public Task<StoredSession?> LoadAsync(
         string id,
         CancellationToken cancellationToken = default)
+        => LoadCoreAsync(null, id, cancellationToken);
+
+    public Task<StoredSession?> LoadForOwnerAsync(
+        string ownerId,
+        string sessionId,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(ownerId);
+        return LoadCoreAsync(ownerId, sessionId, ct);
+    }
+
+    private async Task<StoredSession?> LoadCoreAsync(
+        string? ownerId,
+        string id,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         await using var connection = await OpenConnectionAsync(cancellationToken);
@@ -129,8 +194,9 @@ public sealed class SessionStore
             """
             SELECT id, title, model, summary, created_at, updated_at
             FROM sessions
-            WHERE id = $id;
+            WHERE id = $id AND ($ownerId IS NULL OR owner_id = $ownerId);
             """;
+        AddOwnerParameter(sessionCommand, ownerId);
         sessionCommand.Parameters.AddWithValue("$id", id);
 
         await using var reader = await sessionCommand.ExecuteReaderAsync(cancellationToken);
@@ -147,7 +213,7 @@ public sealed class SessionStore
         var updatedAt = DateTimeOffset.Parse(reader.GetString(5));
         await reader.DisposeAsync();
 
-        var messages = await LoadMessagesAsync(connection, sessionId, cancellationToken);
+        var messages = await LoadMessagesAsync(connection, sessionId, ownerId, cancellationToken);
         return new StoredSession(
             sessionId,
             title,
@@ -176,13 +242,34 @@ public sealed class SessionStore
             : await LoadAsync(id, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<SessionSummary>> ListAsync(
+    public Task<IReadOnlyList<SessionSummary>> ListAsync(
         int limit = 20,
         CancellationToken cancellationToken = default)
+        => ListCoreAsync(null, limit, cancellationToken);
+
+    public Task<IReadOnlyList<SessionSummary>> ListForOwnerAsync(
+        string ownerId,
+        int limit = 20,
+        CancellationToken ct = default,
+        int offset = 0)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(ownerId);
+        return ListCoreAsync(ownerId, limit, ct, offset);
+    }
+
+    private async Task<IReadOnlyList<SessionSummary>> ListCoreAsync(
+        string? ownerId,
+        int limit,
+        CancellationToken cancellationToken,
+        int offset = 0)
     {
         if (limit is < 1 or > 100)
         {
             throw new ArgumentOutOfRangeException(nameof(limit));
+        }
+        if (offset < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(offset));
         }
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
@@ -191,10 +278,13 @@ public sealed class SessionStore
             """
             SELECT id, title, model, created_at, updated_at
             FROM sessions
-            ORDER BY updated_at DESC
-            LIMIT $limit;
+            WHERE $ownerId IS NULL OR owner_id = $ownerId
+            ORDER BY updated_at DESC, id DESC
+            LIMIT $limit OFFSET $offset;
             """;
         command.Parameters.AddWithValue("$limit", limit);
+        command.Parameters.AddWithValue("$offset", offset);
+        AddOwnerParameter(command, ownerId);
 
         var sessions = new List<SessionSummary>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -211,41 +301,74 @@ public sealed class SessionStore
         return sessions;
     }
 
-    public async Task AppendMessageAsync(
+    public Task AppendMessageAsync(
         string sessionId,
         AgentConversationMessage message,
         CancellationToken cancellationToken = default)
+        => AppendMessageCoreAsync(null, sessionId, message, cancellationToken);
+
+    public Task AppendMessageForOwnerAsync(
+        string ownerId,
+        string sessionId,
+        AgentConversationMessage message,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(ownerId);
+        return AppendMessageCoreAsync(ownerId, sessionId, message, ct);
+    }
+
+    private async Task AppendMessageCoreAsync(
+        string? ownerId,
+        string sessionId,
+        AgentConversationMessage message,
+        CancellationToken cancellationToken)
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-        var insert = connection.CreateCommand();
-        insert.Transaction = (SqliteTransaction)transaction;
-        insert.CommandText =
-            """
-            INSERT INTO messages (session_id, role, content, created_at)
-            VALUES ($sessionId, $role, $content, $createdAt);
-            """;
-        insert.Parameters.AddWithValue("$sessionId", sessionId);
-        insert.Parameters.AddWithValue("$role", message.Role);
-        insert.Parameters.AddWithValue("$content", message.Content);
-        insert.Parameters.AddWithValue("$createdAt", message.CreatedAt.ToString("O"));
-        await insert.ExecuteNonQueryAsync(cancellationToken);
+        await InsertMessageAsync(
+            connection,
+            (SqliteTransaction)transaction,
+            ownerId,
+            sessionId,
+            message,
+            cancellationToken);
 
         var touch = connection.CreateCommand();
         touch.Transaction = (SqliteTransaction)transaction;
         touch.CommandText =
-            "UPDATE sessions SET updated_at = $updatedAt WHERE id = $sessionId;";
+            """
+            UPDATE sessions SET updated_at = $updatedAt
+            WHERE id = $sessionId AND ($ownerId IS NULL OR owner_id = $ownerId);
+            """;
         touch.Parameters.AddWithValue("$updatedAt", DateTimeOffset.UtcNow.ToString("O"));
         touch.Parameters.AddWithValue("$sessionId", sessionId);
-        await touch.ExecuteNonQueryAsync(cancellationToken);
+        AddOwnerParameter(touch, ownerId);
+        EnsureOwnedWrite(ownerId, await touch.ExecuteNonQueryAsync(cancellationToken));
         await transaction.CommitAsync(cancellationToken);
     }
 
-    public async Task UpdateTitleAsync(
+    public Task UpdateTitleAsync(
         string sessionId,
         string title,
         CancellationToken cancellationToken = default)
+        => UpdateTitleCoreAsync(null, sessionId, title, cancellationToken);
+
+    public Task UpdateTitleForOwnerAsync(
+        string ownerId,
+        string sessionId,
+        string title,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(ownerId);
+        return UpdateTitleCoreAsync(ownerId, sessionId, title, ct);
+    }
+
+    private async Task UpdateTitleCoreAsync(
+        string? ownerId,
+        string sessionId,
+        string title,
+        CancellationToken cancellationToken)
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
         var command = connection.CreateCommand();
@@ -253,43 +376,65 @@ public sealed class SessionStore
             """
             UPDATE sessions
             SET title = $title, updated_at = $updatedAt
-            WHERE id = $sessionId;
+            WHERE id = $sessionId AND ($ownerId IS NULL OR owner_id = $ownerId);
             """;
         command.Parameters.AddWithValue("$title", title);
         command.Parameters.AddWithValue("$updatedAt", DateTimeOffset.UtcNow.ToString("O"));
         command.Parameters.AddWithValue("$sessionId", sessionId);
-        await command.ExecuteNonQueryAsync(cancellationToken);
+        AddOwnerParameter(command, ownerId);
+        EnsureOwnedWrite(ownerId, await command.ExecuteNonQueryAsync(cancellationToken));
     }
 
-    public async Task ReplaceHistoryAsync(
+    public Task ReplaceHistoryAsync(
         string sessionId,
         string summary,
         IReadOnlyList<AgentConversationMessage> retainedMessages,
         CancellationToken cancellationToken = default)
+        => ReplaceHistoryCoreAsync(null, sessionId, summary, retainedMessages, cancellationToken);
+
+    public Task ReplaceHistoryForOwnerAsync(
+        string ownerId,
+        string sessionId,
+        string summary,
+        IReadOnlyList<AgentConversationMessage> retainedMessages,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(ownerId);
+        return ReplaceHistoryCoreAsync(ownerId, sessionId, summary, retainedMessages, ct);
+    }
+
+    private async Task ReplaceHistoryCoreAsync(
+        string? ownerId,
+        string sessionId,
+        string summary,
+        IReadOnlyList<AgentConversationMessage> retainedMessages,
+        CancellationToken cancellationToken)
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
         var delete = connection.CreateCommand();
         delete.Transaction = (SqliteTransaction)transaction;
-        delete.CommandText = "DELETE FROM messages WHERE session_id = $sessionId;";
+        delete.CommandText =
+            """
+            DELETE FROM messages
+            WHERE session_id = $sessionId AND ($ownerId IS NULL OR EXISTS (
+                SELECT 1 FROM sessions WHERE id = $sessionId AND owner_id = $ownerId
+            ));
+            """;
         delete.Parameters.AddWithValue("$sessionId", sessionId);
+        AddOwnerParameter(delete, ownerId);
         await delete.ExecuteNonQueryAsync(cancellationToken);
 
         foreach (var message in retainedMessages)
         {
-            var insert = connection.CreateCommand();
-            insert.Transaction = (SqliteTransaction)transaction;
-            insert.CommandText =
-                """
-                INSERT INTO messages (session_id, role, content, created_at)
-                VALUES ($sessionId, $role, $content, $createdAt);
-                """;
-            insert.Parameters.AddWithValue("$sessionId", sessionId);
-            insert.Parameters.AddWithValue("$role", message.Role);
-            insert.Parameters.AddWithValue("$content", message.Content);
-            insert.Parameters.AddWithValue("$createdAt", message.CreatedAt.ToString("O"));
-            await insert.ExecuteNonQueryAsync(cancellationToken);
+            await InsertMessageAsync(
+                connection,
+                (SqliteTransaction)transaction,
+                ownerId,
+                sessionId,
+                message,
+                cancellationToken);
         }
 
         var update = connection.CreateCommand();
@@ -298,12 +443,13 @@ public sealed class SessionStore
             """
             UPDATE sessions
             SET summary = $summary, updated_at = $updatedAt
-            WHERE id = $sessionId;
+            WHERE id = $sessionId AND ($ownerId IS NULL OR owner_id = $ownerId);
             """;
         update.Parameters.AddWithValue("$summary", summary);
         update.Parameters.AddWithValue("$updatedAt", DateTimeOffset.UtcNow.ToString("O"));
         update.Parameters.AddWithValue("$sessionId", sessionId);
-        await update.ExecuteNonQueryAsync(cancellationToken);
+        AddOwnerParameter(update, ownerId);
+        EnsureOwnedWrite(ownerId, await update.ExecuteNonQueryAsync(cancellationToken));
         await transaction.CommitAsync(cancellationToken);
     }
 
@@ -372,6 +518,50 @@ public sealed class SessionStore
         return entries;
     }
 
+    private static void AddOwnerParameter(SqliteCommand command, string? ownerId)
+        => command.Parameters.AddWithValue("$ownerId", (object?)ownerId ?? DBNull.Value);
+
+    private static void EnsureOwnedWrite(string? ownerId, int affectedRows)
+    {
+        if (ownerId != null && affectedRows == 0)
+        {
+            throw new KeyNotFoundException("Conversation not found.");
+        }
+    }
+
+    private static async Task InsertMessageAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string? ownerId,
+        string sessionId,
+        AgentConversationMessage message,
+        CancellationToken cancellationToken)
+    {
+        var insert = connection.CreateCommand();
+        insert.Transaction = transaction;
+        insert.CommandText = ownerId == null
+            ? """
+              INSERT INTO messages (session_id, role, content, created_at)
+              VALUES ($sessionId, $role, $content, $createdAt);
+              """
+            : """
+              INSERT INTO messages (session_id, role, content, created_at)
+              SELECT id, $role, $content, $createdAt
+              FROM sessions
+              WHERE id = $sessionId AND owner_id = $ownerId;
+              """;
+        insert.Parameters.AddWithValue("$sessionId", sessionId);
+        insert.Parameters.AddWithValue("$role", message.Role);
+        insert.Parameters.AddWithValue("$content", message.Content);
+        insert.Parameters.AddWithValue("$createdAt", message.CreatedAt.ToString("O"));
+        if (ownerId != null)
+        {
+            AddOwnerParameter(insert, ownerId);
+        }
+
+        EnsureOwnedWrite(ownerId, await insert.ExecuteNonQueryAsync(cancellationToken));
+    }
+
     private async Task<SqliteConnection> OpenConnectionAsync(
         CancellationToken cancellationToken)
     {
@@ -383,6 +573,7 @@ public sealed class SessionStore
     private static async Task<IReadOnlyList<AgentConversationMessage>> LoadMessagesAsync(
         SqliteConnection connection,
         string sessionId,
+        string? ownerId,
         CancellationToken cancellationToken)
     {
         var command = connection.CreateCommand();
@@ -390,10 +581,13 @@ public sealed class SessionStore
             """
             SELECT role, content, created_at
             FROM messages
-            WHERE session_id = $sessionId
+            WHERE session_id = $sessionId AND ($ownerId IS NULL OR EXISTS (
+                SELECT 1 FROM sessions WHERE id = $sessionId AND owner_id = $ownerId
+            ))
             ORDER BY id;
             """;
         command.Parameters.AddWithValue("$sessionId", sessionId);
+        AddOwnerParameter(command, ownerId);
 
         var messages = new List<AgentConversationMessage>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);

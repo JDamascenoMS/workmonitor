@@ -7,7 +7,8 @@ public sealed record PersistentInteractiveCredentialOptions(
     string TenantId,
     string? LoginHint,
     string CacheName,
-    string AuthenticationRecordPath);
+    string AuthenticationRecordPath,
+    bool AllowInteractiveAuthentication = true);
 
 public sealed class PersistentInteractiveCredential : TokenCredential
 {
@@ -56,7 +57,8 @@ public sealed class PersistentInteractiveCredential : TokenCredential
                     activeRequestContext,
                     cancellationToken);
             }
-            catch (AuthenticationRequiredException ex) when (recoveryAttempt < 2)
+            catch (AuthenticationRequiredException ex) when (
+                _options.AllowInteractiveAuthentication && recoveryAttempt < 2)
             {
                 activeRequestContext = ex.TokenRequestContext;
                 credential = await RecoverCredentialAsync(
@@ -71,6 +73,10 @@ public sealed class PersistentInteractiveCredential : TokenCredential
         bool force,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!_options.AllowInteractiveAuthentication)
+            throw new CredentialUnavailableException(
+                "Interactive authentication is disabled for this host. Run workmonitor --auth-login first.");
         if (force)
         {
             await ResetAsync(cancellationToken);
@@ -157,6 +163,9 @@ public sealed class PersistentInteractiveCredential : TokenCredential
                 return _credential;
             }
 
+            if (!_options.AllowInteractiveAuthentication)
+                throw new CredentialUnavailableException(
+                    "No saved WorkMonitor account is available. Run workmonitor --auth-login first.");
             return await AuthenticateWithoutLockAsync(
                 requestContext: null,
                 cancellationToken);
