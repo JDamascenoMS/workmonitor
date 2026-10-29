@@ -81,6 +81,8 @@ public static class Program
         builder.Services.AddSingleton<IAgentTool, SearchWorkItemsTool>();
         builder.Services.AddSingleton<IAgentTool, GetWorkItemTool>();
         builder.Services.AddSingleton<IAgentTool, AddWorkItemCommentTool>();
+        builder.Services.AddSingleton<IAgentTool, UpdateWorkItemTool>();
+        builder.Services.AddSingleton<IAgentTool, CreateBugFromFeedbackTool>();
         builder.Services.AddSingleton<IAgentTool, ListProjectAreasTool>();
         builder.Services.AddSingleton<IAgentTool, ListMyWorkItemsTool>();
         builder.Services.AddSingleton<IAgentTool, ListMyMentionedItemsTool>();

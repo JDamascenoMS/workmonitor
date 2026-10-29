@@ -14,13 +14,17 @@ namespace WorkMonitor.Core.Services
     {
         List<WorkItemComments> ListWorkItems;
         private readonly string _accessToken;
+        private readonly HttpClient? _httpClient;
 
-        public MonitorService(string accessToken) {
+        public MonitorService(string accessToken, HttpClient? httpClient = null) {
             ListWorkItems = new();
             _accessToken = accessToken;
+            _httpClient = httpClient;
         }
 
-        private MonitorClient CreateClient() => new MonitorClient(_accessToken);
+        private MonitorClient CreateClient() => _httpClient == null
+            ? new MonitorClient(_accessToken)
+            : new MonitorClient(_accessToken, _httpClient);
 
         public async Task<List<InternalItem>> GetTopBugsByPriority(string projectArea, string assignedTo = null)
         {
@@ -176,8 +180,14 @@ namespace WorkMonitor.Core.Services
 
             return new
             {
+                id = workItem?.id,
+                revision = workItem?.rev,
+                title = workItem?.fields?.Title,
                 description = workItem?.fields?.Description,
                 state = workItem?.fields?.State,
+                assignedTo = workItem?.fields?.AssignedTo,
+                priority = workItem?.fields?.Priority,
+                tags = workItem?.fields?.Tags,
                 createdBy = workItem?.fields?.CreatedBy?.displayName,
                 postId = workItem?.fields?.PostId,
                 postTitle = customerComments?.title,

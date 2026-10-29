@@ -1,8 +1,10 @@
 using System.ComponentModel;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using WorkMonitor.Agent;
+using WorkMonitor.Core.Models;
 using WorkMonitor.Core.Services;
 
 namespace WorkMonitor.Mcp;
@@ -337,6 +339,67 @@ public sealed class WorkMonitorMcpTools
             new { id, text },
             dryRun: !_allowWrites || !confirm,
             cancellationToken);
+    }
+
+    [McpServerTool(
+        Name = "update_work_item",
+        Destructive = true,
+        Idempotent = false,
+        OpenWorld = true)]
+    [Description(
+        "Update selected title, description, state, assignment, priority, or tags on an existing Azure DevOps work item. " +
+        "Read get_work_item first. Omitted/null fields are unchanged; empty description/assignedTo or tags clears them. " +
+        "A revision conflict requires re-reading and fresh approval, not automatic retry. " +
+        "Dry-run unless server writes are enabled and confirm is true.")]
+    public async Task<object> UpdateWorkItemAsync(
+        [Description("Azure DevOps work item id.")] int id,
+        [Description("Revision from get_work_item; prevents overwriting concurrent edits.")] int expectedRevision,
+        [Description("Only the requested fields. Tags replace the complete list.")] WorkItemFieldUpdate fields,
+        [Description("Explicitly confirm this write operation.")] bool confirm = false,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await ExecuteAsync(
+                "update_work_item",
+                new { id, expectedRevision, fields },
+                dryRun: !_allowWrites || !confirm,
+                cancellationToken);
+        }
+        catch (Exception ex) when (ex is ArgumentException or JsonException or HttpRequestException or InvalidOperationException)
+        {
+            throw new McpException(ex.Message, ex);
+        }
+    }
+
+    [McpServerTool(
+        Name = "create_bug_from_feedback",
+        Destructive = true,
+        Idempotent = false,
+        OpenWorld = true)]
+    [Description(
+        "Create a Bug and its Related link to a verified FeedbackTicket atomically. Requires explicit title, engineering area, " +
+        "and Repro Steps; validates current Bug process rules without bypassing them. Never retries creation automatically. " +
+        "An uncertain result requires searching/verifying before any new attempt. Does not separately edit feedback fields/comments. " +
+        "Dry-run unless server writes are enabled and confirm is true.")]
+    public async Task<object> CreateBugFromFeedbackAsync(
+        [Description("Source FeedbackTicket id, verified before live creation.")] int feedbackTicketId,
+        [Description("Allowlisted Bug fields with explicit engineering routing and reproduction steps.")] BugCreationFields bug,
+        [Description("Explicitly confirm this non-idempotent creation.")] bool confirm = false,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await ExecuteAsync(
+                "create_bug_from_feedback",
+                new { feedbackTicketId, bug },
+                dryRun: !_allowWrites || !confirm,
+                cancellationToken);
+        }
+        catch (Exception ex) when (ex is ArgumentException or JsonException or HttpRequestException or InvalidOperationException or BugCreationOutcomeUnknownException)
+        {
+            throw new McpException(ex.Message, ex);
+        }
     }
 
     [McpServerTool(
