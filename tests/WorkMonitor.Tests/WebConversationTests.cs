@@ -142,6 +142,10 @@ public sealed class WebConversationTests
         Assert.All(tools.EnumerateArray(), tool =>
             Assert.False(tool.GetProperty("isWriteTool").GetBoolean()));
         Assert.Equal(12, tools.GetArrayLength());
+        Assert.DoesNotContain(tools.EnumerateArray(), tool =>
+            tool.GetProperty("name").GetString() == "update_work_item");
+        Assert.DoesNotContain(tools.EnumerateArray(), tool =>
+            tool.GetProperty("name").GetString() == "create_bug_from_feedback");
     }
 
     [Fact]

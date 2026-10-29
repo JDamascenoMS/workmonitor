@@ -28,6 +28,8 @@ namespace WorkMonitor.Agent
         /// <summary>Append-only log of side-effects for the UI transcript.</summary>
         public List<string> AuditLog { get; } = new();
 
+        internal HashSet<int> UnconfirmedBugCreations { get; } = new();
+
         public async ValueTask<string> GetRequiredDevOpsTokenAsync(
             CancellationToken cancellationToken)
         {

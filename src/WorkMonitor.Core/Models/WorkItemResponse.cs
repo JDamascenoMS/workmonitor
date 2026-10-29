@@ -57,6 +57,9 @@ namespace WorkMonitor.Core.Models
         [JsonProperty(PropertyName = "System.ChangedDate")]
         public string ChangedDate { get; set; }
 
+        [JsonProperty(PropertyName = "System.Tags")]
+        public string? Tags { get; set; }
+
     }
 
     public class IdentityRef

@@ -8,7 +8,7 @@ using System.Text;
 
 namespace WorkMonitor.Core.Clients
 {
-    public class MonitorClient
+    public partial class MonitorClient
     {
         private static readonly HttpClient SharedHttpClient = new();
 
@@ -848,6 +848,84 @@ namespace WorkMonitor.Core.Clients
             var body = new { text };
             cancellationToken.ThrowIfCancellationRequested();
             return await GenericCallPost(url, body, CancellationToken.None);
+        }
+
+        public async Task<InternalItem> UpdateWorkItem(
+            int workItemId,
+            int expectedRevision,
+            WorkItemFieldUpdate fields,
+            CancellationToken cancellationToken = default)
+        {
+            if (workItemId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(workItemId), "Work item id must be positive.");
+            if (expectedRevision <= 0)
+                throw new ArgumentOutOfRangeException(nameof(expectedRevision), "expectedRevision must be positive. Read get_work_item first.");
+            ArgumentNullException.ThrowIfNull(fields);
+
+            var patch = new JArray(new JObject
+            {
+                ["op"] = "test",
+                ["path"] = "/rev",
+                ["value"] = expectedRevision
+            });
+            foreach (var field in fields.ToFieldValues())
+            {
+                patch.Add(new JObject
+                {
+                    ["op"] = "add",
+                    ["path"] = $"/fields/{field.Key}",
+                    ["value"] = JToken.FromObject(field.Value)
+                });
+            }
+
+            var url = $"{Constants.ApiUrlBase}/{Constants.Organization}/{Constants.Project}/_apis/wit/workitems/{workItemId}?api-version=7.1";
+            using var request = CreateRequest(HttpMethod.Patch, url);
+            request.Content = new StringContent(
+                patch.ToString(Formatting.None),
+                Encoding.UTF8,
+                "application/json-patch+json");
+
+            // Once dispatched, finish observing the write outcome, as with comment posting.
+            cancellationToken.ThrowIfCancellationRequested();
+            using var response = await _httpClient.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                CancellationToken.None);
+            var body = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new HttpRequestException(
+                    $"Azure DevOps rejected update of work item {workItemId} " +
+                    $"(HTTP {(int)response.StatusCode}): {GetDevOpsErrorDetail(body)} " +
+                    "No automatic retry was performed. Read get_work_item again " +
+                    "and review the changes before retrying with a fresh expectedRevision.",
+                    null,
+                    response.StatusCode);
+            }
+
+            var item = JsonConvert.DeserializeObject<InternalItem>(body);
+            if (item == null || item.id != workItemId || item.rev <= expectedRevision)
+                throw new InvalidOperationException(
+                    "Azure DevOps accepted the update but returned an invalid receipt. " +
+                    "Read get_work_item to verify the outcome before retrying.");
+            return item;
+        }
+
+        private static string GetDevOpsErrorDetail(string body)
+        {
+            if (body.TrimStart().StartsWith('{'))
+            {
+                try
+                {
+                    if (JObject.Parse(body)["message"] is JValue { Type: JTokenType.String } message)
+                        return message.Value<string>() ?? body;
+                }
+                catch (JsonReaderException)
+                {
+                    // Preserve non-JSON server errors verbatim.
+                }
+            }
+            return body;
         }
 
         public async Task<string> GenericCallGet(

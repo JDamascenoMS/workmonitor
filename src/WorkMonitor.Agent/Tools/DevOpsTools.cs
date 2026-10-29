@@ -487,7 +487,7 @@ namespace WorkMonitor.Agent.Tools
         public string Name => "get_work_item";
         public string Description =>
             "Retrieve full details for a single Azure DevOps work item by id. " +
-            "Returns title, description, state, priority, comments, and customer comments.";
+            "Returns id, revision, title, description, state, assignment, priority, tags, comments, and customer comments.";
 
         public bool IsWriteTool => false;
 

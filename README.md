@@ -68,7 +68,8 @@ repositories, and reports when its bounded DevOps comment scan is partial.
 The CLI and MCP hosts use the persisted interactive user credential. The web
 chat uses delegated Azure DevOps tokens for its signed-in user, so `@Me` is
 not evaluated against a server or managed identity. Web chat exposes the
-12 read-only tools; comment posting is intentionally unavailable there.
+12 read-only tools; comment posting, field updates, and Bug creation are
+intentionally unavailable there.
 
 Run the MCP stdio host:
 
@@ -79,6 +80,103 @@ dotnet run --project src/WorkMonitor.Mcp
 MCP writes are dry-run by default. To allow them, set
 `WorkMonitor__Mcp__AllowWrites=true`; each write call must still pass
 `confirm=true`.
+
+The CLI and MCP host expose 15 tools, including three write tools:
+`add_work_item_comment`, `update_work_item`, and `create_bug_from_feedback`.
+Field updates use this input
+(MCP adds the optional `confirm` flag, which defaults to `false`):
+
+```json
+{
+  "id": 12345,
+  "expectedRevision": 7,
+  "fields": {
+    "title": "Clarify the failure message",
+    "description": "<p>Updated reproduction steps.</p>",
+    "state": "Active",
+    "assignedTo": "engineer@example.com",
+    "priority": 2,
+    "tags": ["triage", "customer"]
+  },
+  "confirm": false
+}
+```
+
+Call `get_work_item` first and copy its `revision` into `expectedRevision`.
+Supply any nonempty subset of the six fields; omitted or `null` fields remain
+unchanged. An empty description clears it, `assignedTo: ""` unassigns the item,
+and `tags: []` clears all tags. A supplied tag list replaces the entire list
+(individual tags cannot contain semicolons). Titles must be nonblank and at most
+255 characters. Priorities are nonnegative integers whose allowed values depend
+on the work item type/process, not a universal 1-to-4 scale: current DevDiv Bugs
+allow 0, 1, 2, 3 and FeedbackTickets allow 0, 1, 2. Live updates defer these
+type-specific constraints to Azure DevOps. State transitions and identities
+also remain subject to process rules and the signed-in user's permissions.
+Unknown fields and empty updates are rejected. This tool cannot create work
+items or change relationships.
+
+Dry runs preview the exact field values without authenticating or contacting
+Azure DevOps; revision, identity, permission, and process validation happen on
+the live PATCH. Live updates atomically test `/rev` before changing only the
+requested fields. Stale revisions fail without an automatic retry: re-read the
+item, review the new state, and explicitly approve a fresh update. CLI `/live`
+requires per-operation approval and persists the write audit; MCP requires both
+write enablement and `confirm=true`, using the same per-call tool audit as
+comment posting. Once a write is dispatched, cancellation does not interrupt
+observation of its outcome.
+
+### Create an engineering Bug from feedback
+
+`create_bug_from_feedback` creates a **Bug** with a
+`System.LinkTypes.Related` link pointing from the new Bug to the source
+**FeedbackTicket**. The relation is included in the same creation POST, not
+added afterward; a rejected link cannot leave an unlinked Bug. It does not
+separately edit feedback state, assignment, or comments.
+
+```json
+{
+  "feedbackTicketId": 12345,
+  "bug": {
+    "title": "Project reload fails after a configuration change",
+    "areaPath": "DevDiv\\NET Tools\\Project",
+    "reproSteps": "<p>Steps: ...</p><p>Expected: ...</p><p>Actual: ...</p>",
+    "priority": 0,
+    "tags": ["triage"]
+  },
+  "confirm": false
+}
+```
+
+`title`, `areaPath`, and `reproSteps` are required. Always choose the explicit
+engineering area; do not blindly copy a FeedbackTicket's routing area.
+DevDiv engineering Bugs use `Microsoft.VSTS.TCM.ReproSteps`; optional
+`description` writes the separate `System.Description` field. Optional
+`iterationPath`, `assignedTo`, `priority`, `tags`, and `source` are allowlisted.
+`source` is the explicit `Microsoft.DevDiv.Source` category, not the feedback
+id; omit it rather than inferring a customer category. State and unspecified
+fields use process defaults (currently `Active` state and `PU/Feature team`
+Source). Required server-derived Area/Iteration IDs are not supplied manually.
+
+Dry runs preview fields and the intended relation without authenticating or
+contacting Azure DevOps; they do **not** claim that the source or process has
+been verified. A live call checks the source id and `FeedbackTicket` type,
+reads current Bug field metadata, and validates the exact creation/link payload
+using `validateOnly=true` before creating it. Priority and Source choices are
+checked against metadata; conditional/required fields, area/iteration paths,
+identity, link rules, and permissions remain enforced by Azure DevOps.
+Validation failures expose the server error without bypassing rules.
+
+Creation is non-idempotent. There is exactly one creation attempt and **no
+automatic create retry**, including after timeouts, transport/server errors,
+invalid receipts, or failed verification. After creation, the tool reads the
+new work item back and verifies its id, Bug type, API URL, and actual Related
+link before reporting success with the Bug id, browser/API URLs, and verified
+source relation. An uncertain outcome is an error, with the reported Bug id/URL
+when known: search for and verify that Bug and its link before considering
+another explicitly approved attempt. There is no repair/link/comment fallback.
+The shared agent also blocks another live creation for that source within the
+same run after an uncertain outcome. The same CLI approval/audit and MCP dual
+write gates apply.
 
 Publish self-contained Windows executables:
 
