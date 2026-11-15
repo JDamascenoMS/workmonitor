@@ -31,7 +31,7 @@ if ($dotnetCommand) {
 else {
     $localDotnet = Join-Path $env:LOCALAPPDATA "Microsoft\dotnet\dotnet.exe"
     if (-not (Test-Path -LiteralPath $localDotnet)) {
-        throw ".NET 8 SDK was not found."
+        throw ".NET 10 SDK was not found."
     }
     $dotnetPath = $localDotnet
 }

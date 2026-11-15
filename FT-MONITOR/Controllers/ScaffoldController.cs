@@ -25,7 +25,7 @@ namespace FT_MONITOR.Controllers
 
             try
             {
-                var prompt = $"Generate a .NET 8 project based on these instructions: {request.Instructions}\n\n" +
+                var prompt = $"Generate a .NET 10 project based on these instructions: {request.Instructions}\n\n" +
                              "Return a JSON array of objects with 'path' (relative file path) and 'content' (file content). " +
                              "Include .csproj, Program.cs, and all necessary files. No markdown, just raw JSON.";
 

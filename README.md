@@ -1,7 +1,7 @@
 # FT-MONITOR
 
 Internal feedback / bug / GitHub-issues triage dashboard for the DevDiv tooling
-team. ASP.NET Core (.NET 8) app with Microsoft Entra sign-in, Azure DevOps
+team. ASP.NET Core (.NET 10) app with Microsoft Entra sign-in, Azure DevOps
 queries, Azure OpenAI summarization, and GitHub Issues integration.
 
 ## WorkMonitor conversational CLI
@@ -295,7 +295,7 @@ separately below. Copilot Studio and Teams configuration remain later work.
 
 `src\WorkMonitor.Mcp.Http` is a **separate ASP.NET Core process** using the
 official `ModelContextProtocol.AspNetCore` **2.2.0** Streamable HTTP transport
-on .NET 8. It maps **POST `/mcp`** only, in explicitly stateless mode. It does
+on .NET 10. It maps **POST `/mcp`** only, in explicitly stateless mode. It does
 not serve the FT-MONITOR web/dashboard, static assets, web controllers, cookies,
 desktop credentials, or a browser login. No cross-request user tokens, ticket
 results, MCP sessions, or replayable response caches are persisted.
@@ -397,7 +397,7 @@ require the normal per-request API token and HTTPS.
 Build/run from the isolated checkout with the SDK pinned by `global.json`:
 
 ```powershell
-$dotnet = "$env:LOCALAPPDATA\Microsoft\dotnet\dotnet.exe"
+$dotnet = (Get-Command dotnet -CommandType Application).Source
 & $dotnet build src\WorkMonitor.Mcp.Http\WorkMonitor.Mcp.Http.csproj -c Release
 
 $env:WorkMonitor__HttpMcp__TenantId = "YOUR-TENANT-GUID"
@@ -595,6 +595,150 @@ bounded to **8,192 output tokens**; parsed model text is limited to 100,000
 characters. Tool results fit **14,000 serialized characters**, preserving
 explicit omissions/partial coverage rather than slicing JSON. Exceeding a
 response limit fails explicitly.
+
+#### HTTP-only publish artifact and operator preflight
+
+The existing App Service workflow, `deploy-appservice.ps1` and portable web
+publisher target **FT-MONITOR/dashboard**, not this host. The desktop publisher
+targets CLI/stdio. Do not reuse those deployment commands or their application
+names for HTTP MCP. No approved HTTP-host deployment target or public URL is
+established here; the following prepares a host-neutral artifact only.
+
+The full solution now targets `net10.0`, pinned to GA SDK **10.0.404** with
+roll-forward disabled and no prerelease SDKs. The selected .NET and ASP.NET Core
+runtime patch is **10.0.15** (November 10, 2026 security release); use that or a
+later supported .NET 10 servicing patch on the target. Microsoft's
+[release metadata](https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json)
+and [support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core)
+list .NET 10 as active LTS through **November 14, 2028**. Do not force
+major-version runtime roll-forward.
+
+The earlier `artifacts\workmonitor-http\f94c60fbbde4` directory and
+`artifacts\workmonitor-http-f94c60fbbde4.zip` still contain **.NET 8** bits and are
+**superseded, not suitable for live activation** (.NET 8 ended support November
+10, 2026). Keep those reviewed artifacts unchanged. The new
+`net10-local-migration-f94c60fbbde4` label explicitly identifies the uncommitted
+migration on top of that commit, not a build of the commit alone.
+
+From a reviewed checkout with its dependency graph already restored, publish
+only the HTTP project into a **fresh** ignored artifact directory:
+
+```powershell
+$dotnet = (Get-Command dotnet -CommandType Application).Source
+$revision = (git rev-parse HEAD).Substring(0, 12)
+$label = "net10-local-migration-$revision" # migration remains uncommitted
+$artifact = Join-Path (Get-Location) "artifacts\workmonitor-http\$label"
+if (Test-Path -LiteralPath $artifact) {
+    throw "Do not overwrite a reviewed artifact; use a fresh output directory."
+}
+& $dotnet publish src\WorkMonitor.Mcp.Http\WorkMonitor.Mcp.Http.csproj `
+    --configuration Release --no-restore --self-contained false `
+    -p:UseAppHost=false -p:IsTransformWebConfigDisabled=true `
+    -p:DebugType=None -p:DebugSymbols=false --output $artifact
+if ($LASTEXITCODE -ne 0) { throw "HTTP host publish failed." }
+```
+
+This is framework-dependent: the target needs the matching **ASP.NET Core 10
+shared runtime** (10.0.15 or a later supported 10.0 patch), not just the base
+.NET runtime. Verify `dotnet --list-runtimes` before launch. It includes the HTTP DLL,
+`WorkMonitor.Agent`/`WorkMonitor.Core` and their runtime dependency closure
+(including shared SQLite/DevOps SDK libraries), not the desktop executables or
+FT-MONITOR app. No apphost, IIS `web.config`, dashboard/static assets, test
+assemblies, desktop token/cache/database files, real catalogs, PFX files or
+secrets belong in the artifact. Inspect the actual output, not merely the
+project name. The only application configuration shipped is the checked-in
+placeholder `appsettings.json`; never package a locally populated copy.
+Archive/hash this reviewed directory separately from any mounted data/secrets.
+Do not overlay a dashboard/desktop publish directory or copy a user's home.
+The unchanged legacy DevOps SDK retains `System.Data.SqlClient` 4.8.5; .NET 10's
+transitive dependency audit reports **NU1903**
+([advisory](https://github.com/advisories/GHSA-98g6-xh36-x2p7)).
+The runtime migration does not remediate that dependency; review it separately
+before production approval.
+
+The operator must supply the **approved** hosting target and exact public
+hostname, trusted TLS server certificate, permitted ingress/backend addresses,
+supported runtime, Entra tenant/API/scope/consents and OBO credential, pilot
+catalogs and independent model identity/deployment. None is provisioned by
+publishing. After runtime verification and approvals are satisfied, the launch
+shape below uses operator-provided values; it is not a deployment command:
+
+```powershell
+# On the approved host, using its runtime path and extracted artifact directory.
+$artifact = "C:\ApprovedApps\WorkMonitorHttp"
+$dotnet = "C:\ApprovedDotnet\dotnet.exe"
+$env:DOTNET_ENVIRONMENT = "Production"
+$env:ASPNETCORE_ENVIRONMENT = "Production"
+$env:ASPNETCORE_FORWARDEDHEADERS_ENABLED = "false"
+$env:AllowedHosts = "mcp.example.invalid" # replace with exact approved DNS name
+$env:WorkMonitor__HttpMcp__TenantId = "YOUR-TENANT-GUID"
+$env:WorkMonitor__HttpMcp__ClientId = "YOUR-API-APPLICATION-GUID"
+$env:WorkMonitor__HttpMcp__RequiredScope = "access_as_user"
+$env:WorkMonitor__HttpMcp__DataDirectory = "C:\MountedCatalogs\WorkMonitorHttp"
+$env:WorkMonitor__HttpMcp__CertificatePath = "C:\MountedSecrets\workmonitor-obo.pfx"
+$env:WorkMonitor__HttpMcp__ClientSecret = "" # certificate mode; never both
+# OBO CertificatePassword, if needed, is injected by the approved secret provider.
+
+# Loopback suits an ingress on this host. A different private bind needs approval.
+$listenAddress = "127.0.0.1"
+$env:Kestrel__Endpoints__Mcp__Url = "https://${listenAddress}:7443"
+$env:Kestrel__Endpoints__Mcp__Certificate__Path = "C:\MountedSecrets\workmonitor-https.pfx"
+# Kestrel__Endpoints__Mcp__Certificate__Password is separately secret-injected.
+$env:AzureOpenAI__Endpoint = "https://YOUR-RESOURCE.openai.azure.com/"
+$env:AzureOpenAI__DeploymentName = "YOUR-APPROVED-DEPLOYMENT"
+$env:AzureOpenAI__Authentication = "ManagedIdentity"
+$env:AzureOpenAI__ManagedIdentityClientId = "" # or approved user-assigned GUID
+$env:AzureOpenAI__ApiKey = "" # explicit approved key mode is documented above
+& $dotnet (Join-Path $artifact "workmonitor-mcp-http.dll") --contentRoot $artifact
+```
+
+Keep the TLS server certificate and the API's OBO client certificate separate.
+Passwords, the optional OBO secret and optional model key are never shell
+arguments or values in this example. Run under the operator's service identity
+with least-privilege read access to code, mounted secrets and catalogs.
+Precreate `<DataDirectory>\data` and mount its `parameters.json` and
+`saved-queries.json` using the formats/precedence above. The shared catalog
+loader calls `Directory.CreateDirectory`; precreating the directory allows a
+read-only catalog mount. No MCP tool edits those files.
+
+For this host-neutral form, use direct trusted HTTPS or **HTTPS re-encryption
+from ingress to Kestrel**, with ingress preserving the approved public Host.
+Validate the public Host at ingress too, restrict backend access to that
+ingress, configure upstream certificate/SNI validation, and never disable TLS
+verification. Binding an address does not add it to `AllowedHosts`. If ingress
+must rewrite Host, explicitly approve/allow only the resulting backend Host
+and enforce the original public Host at ingress. Do not enable wildcard hosts
+or arbitrary forwarded-host trust to make a probe pass.
+
+There is no custom trusted-proxy/forwarded-header configuration in this
+artifact. Keep `ASPNETCORE_FORWARDEDHEADERS_ENABLED=false`; a plaintext upstream
+does not become HTTPS by sending `X-Forwarded-Proto: https`. An HTTP-only TLS
+termination arrangement needs a separately reviewed, explicitly trusted
+platform/proxy integration before it can be used, not an unrestricted header
+switch. Do not repurpose the existing web workflow or turn on CORS.
+
+There is no anonymous health/UI route. Use an approved network/TLS health probe
+or an appropriately authenticated probe, not a bypass around MCP authorization.
+After actual activation, an anonymous request can safely verify the auth
+boundary without obtaining a token or reading tickets:
+
+```powershell
+$endpoint = "https://mcp.example.invalid/mcp" # actual approved URL
+curl.exe --silent --show-error --output NUL --write-out "%{http_code}`n" `
+    --request POST $endpoint --header "Content-Type: application/json" `
+    --header "Accept: application/json, text/event-stream" `
+    --data '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+# Expected 401; TLS/transport failures are errors, never bypass with --insecure.
+```
+
+Then use the intended approved OAuth/MCP client to verify allowed/denied users,
+401 claims-challenge handling, exact four-tool discovery, catalog contents,
+canonical ticket fields/links, permitted and denied source access, and FTS/area
+themes with honest coverage. With a valid user, unapproved Host/Origin and
+plaintext HTTP must remain denied; forwarded headers must not elevate HTTP.
+Measure end-to-end theme latency and error/throttle behavior through the actual
+connection before acceptance. A local artifact/startup check cannot establish
+public TLS trust, tenant consent, source/model access or connector latency.
 
 #### Verification versus activation gates
 
@@ -924,7 +1068,9 @@ Wire up `AddAzureKeyVault(...)` in `Program.cs` and reference the same keys.
 
 ## Other prerequisites
 
-- .NET 8 SDK.
+- GA .NET SDK **10.0.404**, pinned by `global.json`; all seven solution projects
+  target `net10.0`. Use `dotnet --version` from the checkout to verify SDK
+  selection. Do not use an older SDK-only installation or major roll-forward.
 - An account in the configured Entra tenant (see `AzureAd` section in
   `appsettings.json`).
 - For web chat, a configured Entra web app with delegated Azure DevOps consent.

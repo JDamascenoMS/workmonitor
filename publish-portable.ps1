@@ -99,7 +99,7 @@ Set-Content -Path $launcherPath -Value $launcherBody -Encoding ASCII
 # A readme to set expectations for whoever receives the zip.
 $readmePath = Join-Path $Resolved 'README.txt'
 $readmeBody = @"
-FT-MONITOR — portable build
+FT-MONITOR — portable build (.NET 10)
 ============================
 
 To run:

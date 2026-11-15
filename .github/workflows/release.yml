@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DOTNET_VERSION: 8.0.424
+  DOTNET_VERSION: 10.0.404
   SOLUTION: FT-MONITOR.sln
 
 jobs:

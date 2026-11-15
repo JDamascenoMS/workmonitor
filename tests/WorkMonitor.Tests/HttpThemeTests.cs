@@ -467,6 +467,7 @@ public sealed class HttpThemeTests
     [InlineData("origin")]
     [InlineData("host")]
     [InlineData("http")]
+    [InlineData("forwarded-http")]
     [InlineData("session")]
     [InlineData("override")]
     public async Task ThemeCallsPreserveAllTransportPreflightBoundaries(string variant)
@@ -478,6 +479,11 @@ public sealed class HttpThemeTests
             case "origin": http.DefaultRequestHeaders.Add("Origin", "https://localhost"); break;
             case "host": http.DefaultRequestHeaders.Host = "foreign.invalid"; break;
             case "http": http.BaseAddress = new("http://localhost"); break;
+            case "forwarded-http":
+                http.BaseAddress = new("http://localhost");
+                http.DefaultRequestHeaders.Add("X-Forwarded-Proto", "https");
+                http.DefaultRequestHeaders.Add("X-Forwarded-Host", "localhost");
+                break;
             case "session": http.DefaultRequestHeaders.Add("Mcp-Session-Id", "foreign-session"); break;
             case "override": http.DefaultRequestHeaders.Add("X-WorkMonitor-DevOps-Token", "foreign-token"); break;
         }
@@ -762,10 +768,11 @@ internal sealed class HttpThemeSource : HttpMessageHandler
             try { await Task.Delay(Timeout.Infinite, cancellationToken); }
             catch (OperationCanceledException) { Cancelled.TrySetResult(); throw; }
         }
-        LastBody = request.Content == null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
+        var requestBody = request.Content == null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
+        LastBody = requestBody;
         var batch = request.RequestUri.AbsolutePath.EndsWith("/workitemsbatch", StringComparison.OrdinalIgnoreCase);
-        if (!batch && LastBody != null)
-            Wiql = JsonSerializer.Deserialize<JsonElement>(LastBody).GetProperty("query").GetString();
+        if (!batch && requestBody != null)
+            Wiql = JsonSerializer.Deserialize<JsonElement>(requestBody).GetProperty("query").GetString();
         if (Mode == "denied" || (Mode == "deniedBatch" && batch))
             return new(HttpStatusCode.Forbidden) { Content = new StringContent(HttpMcpTests.Sentinel) };
         if (Mode == "malformedQuery" && !batch)
@@ -773,7 +780,7 @@ internal sealed class HttpThemeSource : HttpMessageHandler
         object body;
         if (batch)
         {
-            var args = JsonSerializer.Deserialize<JsonElement>(LastBody!);
+            var args = JsonSerializer.Deserialize<JsonElement>(requestBody!);
             body = new
             {
                 value = Mode == "missing" ? [] : args.GetProperty("ids").EnumerateArray().Select(id => new

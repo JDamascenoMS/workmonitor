@@ -51,7 +51,7 @@ public sealed class HttpMcpSettings : IDisposable
                 throw new InvalidOperationException($"{Section}:CertificatePath must be an absolute mounted certificate path.");
             try
             {
-                certificate = new X509Certificate2(certificatePath, section["CertificatePassword"],
+                certificate = X509CertificateLoader.LoadPkcs12FromFile(certificatePath, section["CertificatePassword"],
                     X509KeyStorageFlags.EphemeralKeySet);
                 using var key = certificate.GetRSAPrivateKey();
                 if (key == null || key.KeySize < 2048 || certificate.NotBefore.ToUniversalTime() > DateTime.UtcNow ||

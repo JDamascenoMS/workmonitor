@@ -3,7 +3,7 @@
     Deploys FT-MONITOR to Azure App Service (FT-MONITOR20260323).
 
 .DESCRIPTION
-    1. Publishes the .NET 8 app.
+    1. Publishes the .NET 10 app.
     2. Deploys to the existing App Service using az webapp deploy.
 
 .PARAMETER ResourceGroup
@@ -37,7 +37,7 @@ Write-Host "Subscription: $($account.name) ($($account.id))" -ForegroundColor Gr
 # ------------------------------------------------------------------
 # Step 2 - Publish the .NET app and create zip
 # ------------------------------------------------------------------
-Write-Host "`n[2/3] Publishing FT-MONITOR .NET 8 app..." -ForegroundColor Yellow
+Write-Host "`n[2/3] Publishing FT-MONITOR .NET 10 app..." -ForegroundColor Yellow
 $publishDir = "publish"
 if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
 dotnet publish FT-MONITOR/FT-MONITOR.csproj -c Release -o $publishDir --nologo

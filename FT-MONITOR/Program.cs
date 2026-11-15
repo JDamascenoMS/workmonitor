@@ -34,7 +34,7 @@ namespace FT_MONITOR
             {
                 options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
                                          | ForwardedHeaders.XForwardedProto;
-                options.KnownNetworks.Clear();
+                options.KnownIPNetworks.Clear();
                 options.KnownProxies.Clear();
             });
 

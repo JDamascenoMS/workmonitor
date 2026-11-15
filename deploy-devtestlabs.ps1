@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     1. Creates the resource group and DevTest Lab + VM via Bicep.
-    2. Publishes the .NET 8 app.
+    2. Publishes the .NET 10 app.
     3. Copies the published artifacts to the VM and configures IIS.
 
 .PARAMETER AdminPassword
@@ -65,7 +65,7 @@ Write-Host "Lab and VM deployed successfully." -ForegroundColor Green
 # ------------------------------------------------------------------
 # Step 4 - Publish the .NET app
 # ------------------------------------------------------------------
-Write-Host "`n[4/6] Publishing FT-MONITOR .NET 8 app..." -ForegroundColor Yellow
+Write-Host "`n[4/6] Publishing FT-MONITOR .NET 10 app..." -ForegroundColor Yellow
 $publishDir = "publish"
 dotnet publish FT-MONITOR/FT-MONITOR.csproj -c Release -o $publishDir --nologo
 
@@ -127,9 +127,9 @@ Write-Host "     mstsc /v:$publicIp" -ForegroundColor Green
 Write-Host "     User: ftadmin  |  Password: (the one you provided)" -ForegroundColor Gray
 Write-Host ""
 Write-Host "  2. On the VM, run in PowerShell (Admin):" -ForegroundColor White
-Write-Host "     # Install ASP.NET Core 8.0 Hosting Bundle" -ForegroundColor Gray
+Write-Host "     # Install the approved ASP.NET Core 10.0 Hosting Bundle (10.0.15 or later patch)" -ForegroundColor Gray
 Write-Host '     Invoke-WebRequest -Uri "https://dot.net/v1/dotnet-install.ps1" -OutFile dotnet-install.ps1' -ForegroundColor Green
-Write-Host '     winget install Microsoft.DotNet.HostingBundle.8 --accept-package-agreements --accept-source-agreements' -ForegroundColor Green
+Write-Host '     winget install Microsoft.DotNet.HostingBundle.10 --accept-package-agreements --accept-source-agreements' -ForegroundColor Green
 Write-Host ""
 Write-Host "  3. Copy the '$publishDir' folder to the VM (e.g. C:\inetpub\ft-monitor)" -ForegroundColor White
 Write-Host ""
