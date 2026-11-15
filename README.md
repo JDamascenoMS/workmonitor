@@ -604,6 +604,13 @@ targets CLI/stdio. Do not reuse those deployment commands or their application
 names for HTTP MCP. No approved HTTP-host deployment target or public URL is
 established here; the following prepares a host-neutral artifact only.
 
+Pushes to `main` run the existing dashboard **build and full test CI only**.
+Its Azure deploy job requires a manual `workflow_dispatch` on `main` with
+`deploy_dashboard=true` (default **false**); pushes and ordinary manual CI runs
+skip deployment. Test-only dummy auth/model bootstrap settings do not supply
+live credentials. This safeguard does not approve dashboard deployment or
+resolve its known outstanding hardening; it never deploys the HTTP MCP host.
+
 The full solution now targets `net10.0`, pinned to GA SDK **10.0.404** with
 roll-forward disabled and no prerelease SDKs. The selected .NET and ASP.NET Core
 runtime patch is **10.0.15** (November 10, 2026 security release); use that or a
@@ -616,9 +623,11 @@ major-version runtime roll-forward.
 The earlier `artifacts\workmonitor-http\f94c60fbbde4` directory and
 `artifacts\workmonitor-http-f94c60fbbde4.zip` still contain **.NET 8** bits and are
 **superseded, not suitable for live activation** (.NET 8 ended support November
-10, 2026). Keep those reviewed artifacts unchanged. The new
-`net10-local-migration-f94c60fbbde4` label explicitly identifies the uncommitted
-migration on top of that commit, not a build of the commit alone.
+10, 2026). Keep those reviewed artifacts unchanged. The
+`net10-local-migration-f94c60fbbde4` artifact was built from the then-uncommitted
+migration on top of that commit, not from the commit alone. The migration and
+readiness source are now committed as `56b8565`; the historical artifact label
+still identifies its original local snapshot.
 
 From a reviewed checkout with its dependency graph already restored, publish
 only the HTTP project into a **fresh** ignored artifact directory:
@@ -626,7 +635,8 @@ only the HTTP project into a **fresh** ignored artifact directory:
 ```powershell
 $dotnet = (Get-Command dotnet -CommandType Application).Source
 $revision = (git rev-parse HEAD).Substring(0, 12)
-$label = "net10-local-migration-$revision" # migration remains uncommitted
+$snapshot = if (git status --porcelain) { "net10-local-snapshot" } else { "net10" }
+$label = "$snapshot-$revision"
 $artifact = Join-Path (Get-Location) "artifacts\workmonitor-http\$label"
 if (Test-Path -LiteralPath $artifact) {
     throw "Do not overwrite a reviewed artifact; use a fresh output directory."
