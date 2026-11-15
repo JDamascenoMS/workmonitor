@@ -14,6 +14,9 @@ namespace WorkMonitor.Core.Models
         public int rev { get; set; }
         public CustomFields fields { get; set; }
         public string url { get; set; }
+        [JsonIgnore]
+        [System.Text.Json.Serialization.JsonIgnore]
+        public int? ReadPriority { get; set; }
     }
 
     public class CustomFields

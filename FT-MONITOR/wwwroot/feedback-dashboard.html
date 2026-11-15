@@ -509,6 +509,9 @@
 
                 const data = await res.json();
                 allItems = data.items || [];
+                const coverageNote = data.coverage?.isPartial
+                    ? `Partial analysis: ${data.coverage.analyzedCount} feedback items analyzed, ${data.coverage.classifiedCount} classified. The source window, clipped text, omitted items, or unclassified feedback limit coverage; this is not exhaustive.`
+                    : '';
 
                 // Parse themes — the endpoint returns themes as a JSON string
                 try {
@@ -518,12 +521,13 @@
                 }
 
                 if (!themes || themes.length === 0) {
-                    msg.textContent = 'No themes identified. Try a different area or ensure there are feedback items.';
+                    msg.textContent = 'No themes identified. Try a different area or ensure there are feedback items. ' + coverageNote;
                     bar.style.display = 'none';
                     return;
                 }
 
-                msg.style.display = 'none';
+                msg.textContent = coverageNote;
+                msg.style.display = coverageNote ? 'block' : 'none';
                 bar.style.display = 'none';
                 renderSummary();
                 renderThemes();
@@ -542,7 +546,7 @@
             summary.innerHTML = `
                 <div class="summary-stat">
                     <div class="stat-value">${totalItems}</div>
-                    <div class="stat-label">Total Feedback Items</div>
+                    <div class="stat-label">Feedback Items Analyzed</div>
                 </div>
                 <div class="summary-stat">
                     <div class="stat-value">${themes.length}</div>

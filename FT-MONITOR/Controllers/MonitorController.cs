@@ -14,11 +14,16 @@ namespace FT_MONITOR.Controllers
     {
         private readonly AzureOpenAIService _aiService;
         private readonly IWebDevOpsTokenService _devOpsTokenService;
+        private readonly FeedbackThemeAnalysisService _themeAnalysis;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public MonitorController(AzureOpenAIService aiService, IWebDevOpsTokenService devOpsTokenService)
+        public MonitorController(AzureOpenAIService aiService, IWebDevOpsTokenService devOpsTokenService,
+            FeedbackThemeAnalysisService themeAnalysis, IHttpClientFactory httpClientFactory)
         {
             _aiService = aiService;
             _devOpsTokenService = devOpsTokenService;
+            _themeAnalysis = themeAnalysis;
+            _httpClientFactory = httpClientFactory;
         }
 
         private async Task<string> GetAccessTokenAsync()
@@ -75,9 +80,28 @@ namespace FT_MONITOR.Controllers
         [HttpGet("work-item-details/{id}")]
         public async Task<IActionResult> GetWorkItemDetails(int id)
         {
-            var serv = await CreateServiceAsync();
-            var details = await serv.GetWorkItemDetails(id);
-            return Ok(details);
+            try
+            {
+                var serv = new MonitorService(await GetAccessTokenAsync(),
+                    _httpClientFactory.CreateClient("WorkItemLookup"));
+                return Ok(await serv.GetWorkItemDetails(id, HttpContext.RequestAborted));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode.HasValue)
+            {
+                return StatusCode((int)ex.StatusCode.Value, ex.Message);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return StatusCode(502, ex.Message);
+            }
         }
 
         [HttpGet("search-mentions")]
@@ -147,50 +171,26 @@ namespace FT_MONITOR.Controllers
         {
             try
             {
-                var serv = await CreateServiceAsync();
-                var feedback = await serv.GetTopFeedbackByPriority(projectArea);
-
-                if (feedback == null || !feedback.Any())
-                    return Ok(new { themes = "[]", items = new List<object>() });
-
-                // Build a lightweight JSON payload for AI classification
-                var itemsForAi = feedback.Select(f => new
+                var request = _themeAnalysis.CreateRequest(projectArea, maxResults: 200);
+                var client = new MonitorClient(
+                    await GetAccessTokenAsync(), _httpClientFactory.CreateClient("FeedbackThemes"));
+                var result = await _themeAnalysis.AnalyzeAsync(client, request, HttpContext.RequestAborted);
+                return Ok(new
                 {
-                    Id = f.id,
-                    Title = f.fields?.Title ?? "",
-                    Description = f.fields?.Description ?? "",
-                    State = f.fields?.State ?? "",
-                    Priority = f.fields?.Priority ?? 0
-                }).ToList();
-
-                var json = System.Text.Json.JsonSerializer.Serialize(itemsForAi);
-
-                var themesJson = await _aiService.ClassifyFeedbackThemes(json);
-
-                // Strip markdown fences if the model wraps the response
-                themesJson = themesJson.Trim();
-                if (themesJson.StartsWith("```"))
-                {
-                    var firstNewline = themesJson.IndexOf('\n');
-                    if (firstNewline >= 0)
-                        themesJson = themesJson[(firstNewline + 1)..];
-                    if (themesJson.EndsWith("```"))
-                        themesJson = themesJson[..^3];
-                    themesJson = themesJson.Trim();
-                }
-
-                // Return both the AI themes and the full item data so the page can display details
-                var itemsLookup = feedback.Select(f => new
-                {
-                    id = f.id,
-                    title = f.fields?.Title ?? "",
-                    state = f.fields?.State ?? "",
-                    priority = f.fields?.Priority ?? 0,
-                    assignedTo = f.fields?.AssignedTo?.displayName ?? "Unassigned",
-                    createdDate = f.fields?.CreatedDate ?? ""
+                    themes = System.Text.Json.JsonSerializer.Serialize(
+                        result.Themes, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)),
+                    items = result.Items,
+                    source = result.Source,
+                    coverage = result.Coverage
                 });
-
-                return Ok(new { themes = themesJson, items = itemsLookup });
+            }
+            catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {

@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\src\WorkMonitor.Cli\WorkMonitor.Cli.csproj" />
     <ProjectReference Include="..\..\src\WorkMonitor.Core\WorkMonitor.Core.csproj" />
     <ProjectReference Include="..\..\src\WorkMonitor.Mcp\WorkMonitor.Mcp.csproj" />
+    <ProjectReference Include="..\..\src\WorkMonitor.Mcp.Http\WorkMonitor.Mcp.Http.csproj" />
     <ProjectReference Include="..\..\FT-MONITOR\FT-MONITOR.csproj" />
   </ItemGroup>
 

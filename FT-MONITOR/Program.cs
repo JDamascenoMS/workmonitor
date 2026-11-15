@@ -76,6 +76,9 @@ namespace FT_MONITOR
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
             builder.Services.AddSingleton<AzureOpenAIService>();
+            builder.Services.AddFeedbackThemeAnalysis();
+            builder.Services.AddHttpClient("FeedbackThemes");
+            builder.Services.AddHttpClient("WorkItemLookup");
             builder.Services.AddSingleton<IAgentModel>(
                 services => services.GetRequiredService<AzureOpenAIService>());
             builder.Services.AddSingleton(

@@ -25,6 +25,8 @@ namespace WorkMonitor.Agent
         /// <summary>If true, write tools must NOT mutate state; they should return a description of the intended change.</summary>
         public bool DryRun { get; init; } = true;
 
+        internal int ReadResultMaxCharacters { get; set; } = WorkMonitor.Core.Helpers.ReadResultBudget.MaxCharacters;
+
         /// <summary>Append-only log of side-effects for the UI transcript.</summary>
         public List<string> AuditLog { get; } = new();
 

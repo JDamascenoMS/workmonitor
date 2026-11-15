@@ -332,17 +332,7 @@ namespace WorkMonitor.Agent.Tools
                              maxProperty.ValueKind == JsonValueKind.Number
                 ? maxProperty.GetInt32()
                 : 20;
-            var configured = _parameters.GetSavedQueries();
-            var match = configured.FirstOrDefault(item =>
-                item.Key.Equals(query, StringComparison.OrdinalIgnoreCase));
-            var queryId = string.IsNullOrWhiteSpace(match.Value)
-                ? query
-                : match.Value;
-            if (!Guid.TryParse(queryId, out _))
-            {
-                throw new KeyNotFoundException(
-                    $"Saved query '{query}' was not found. Call list_saved_queries first.");
-            }
+            var (queryName, queryId) = _parameters.ResolveSavedQuery(query);
 
             var client = await DevOpsToolHelpers.RequireClientAsync(ctx, ct);
             var (items, totalCount) = await client.GetWorkItemsFromSavedQuery(
@@ -352,7 +342,7 @@ namespace WorkMonitor.Agent.Tools
 
             return new
             {
-                query = string.IsNullOrWhiteSpace(match.Key) ? queryId : match.Key,
+                query = queryName,
                 queryId,
                 totalCount,
                 returnedCount = items.Count,
@@ -476,35 +466,6 @@ namespace WorkMonitor.Agent.Tools
                 maxResults,
                 commentsPerItem,
                 ct);
-        }
-    }
-
-    /// <summary>
-    /// Reads a single DevOps work item plus its comments.
-    /// </summary>
-    public class GetWorkItemTool : IAgentTool
-    {
-        public string Name => "get_work_item";
-        public string Description =>
-            "Retrieve full details for a single Azure DevOps work item by id. " +
-            "Returns id, revision, title, description, state, assignment, priority, tags, comments, and customer comments.";
-
-        public bool IsWriteTool => false;
-
-        public JsonElement ParametersSchema { get; } = JsonDocument.Parse(@"{
-            ""type"": ""object"",
-            ""properties"": {
-                ""id"": { ""type"": ""integer"", ""description"": ""Work item id."" }
-            },
-            ""required"": [""id""]
-        }").RootElement;
-
-        public async Task<object> ExecuteAsync(JsonElement args, AgentContext ctx, CancellationToken ct)
-        {
-            var id = args.GetProperty("id").GetInt32();
-            var token = await ctx.GetRequiredDevOpsTokenAsync(ct);
-            var service = new MonitorService(token);
-            return await service.GetWorkItemDetails(id, ct);
         }
     }
 

@@ -6,12 +6,14 @@ queries, Azure OpenAI summarization, and GitHub Issues integration.
 
 ## WorkMonitor conversational CLI
 
-The repository now includes a reusable agent stack and two additional hosts:
+The repository includes a reusable agent stack and dedicated CLI/MCP hosts:
 
 - `src/WorkMonitor.Core` contains the Azure DevOps and GitHub integrations.
 - `src/WorkMonitor.Agent` contains the streaming conversation runtime and tools.
 - `src/WorkMonitor.Cli` provides a resumable terminal conversation.
 - `src/WorkMonitor.Mcp` exposes the same tools over the official MCP stdio SDK.
+- `src/WorkMonitor.Mcp.Http` is a separate, authenticated, read-only remote MCP
+  host (see [HTTP MCP Stage 2](#http-mcp-stage-2)).
 
 Configure the model using environment variables or the existing .NET user-secrets id:
 
@@ -33,7 +35,7 @@ dotnet run --project src/WorkMonitor.Cli -- --auth-login
 dotnet run --project src/WorkMonitor.Cli -- --check
 ```
 
-The CLI and MCP host share one encrypted persistent token cache for Azure OpenAI
+The CLI and stdio MCP host share one encrypted persistent token cache for Azure OpenAI
 and Azure DevOps. The non-secret account record is stored beside the session
 database in `%LOCALAPPDATA%\WorkMonitor`. Use `--auth-reset` to clear the saved
 account selection and authenticate again.
@@ -53,19 +55,21 @@ Read-only agent capabilities include:
 
 - Assigned and mentioned Azure DevOps work items
 - Configured saved-query discovery and execution
+- AI feedback theme analysis by configured area or saved query, with ticket links and coverage metadata
 - Azure DevOps pull requests awaiting the current user's review
 - Recent assigned/mentioned work with newest comments
 - Work-item details and text search
 - GitHub issue listing and details
 - Explicit-reference correlation between DevOps work items and GitHub issues
 
-Recent activity and correlation results preserve their JSON structure under
-an aggregate output-size budget. Partial-result flags expose truncated output
+Recent activity, correlation, ticket lookup, and theme results preserve their
+JSON structure under output-size budgets. Partial-result flags expose truncated output
 or candidate windows; use `get_work_item` or `get_github_issue` for additional
 details. Correlation only follows explicit references in configured GitHub
 repositories, and reports when its bounded DevOps comment scan is partial.
 
-The CLI and MCP hosts use the persisted interactive user credential. The web
+The CLI and stdio MCP hosts use the persisted interactive user credential. The HTTP
+host instead requires a validated API bearer token and confidential-client OBO. The web
 chat uses delegated Azure DevOps tokens for its signed-in user, so `@Me` is
 not evaluated against a server or managed identity. Web chat exposes the
 12 read-only tools; comment posting, field updates, and Bug creation are
@@ -81,7 +85,7 @@ MCP writes are dry-run by default. To allow them, set
 `WorkMonitor__Mcp__AllowWrites=true`; each write call must still pass
 `confirm=true`.
 
-The CLI and MCP host expose 15 tools, including three write tools:
+The CLI and MCP host expose 16 tools, including three write tools:
 `add_work_item_comment`, `update_work_item`, and `create_bug_from_feedback`.
 Field updates use this input
 (MCP adds the optional `confirm` flag, which defaults to `false`):
@@ -124,6 +128,355 @@ requires per-operation approval and persists the write audit; MCP requires both
 write enablement and `confirm=true`, using the same per-call tool audit as
 comment posting. Once a write is dispatched, cancellation does not interrupt
 observation of its outcome.
+
+### Analyze feedback themes outside the web
+
+`analyze_feedback_themes` runs the dashboard's shared, read-only theme analysis
+directly against Azure DevOps and your configured Azure OpenAI deployment.
+No FT-MONITOR server, dashboard sign-in, or local web endpoint is needed. The CLI
+and MCP use their existing saved user credential, including for Azure OpenAI
+when no API key is configured. MCP startup, `--list-tools`, and all previous
+tools still work without Azure OpenAI settings; only theme analysis of nonempty
+feedback requires them.
+
+Choose **one source**: `projectArea` from `list_project_areas`, or `query` from
+`list_saved_queries` (a configured alias or an accessible saved-query GUID).
+Omitting both selects `Project`; supplying both is rejected.
+`maxResults` defaults to 20 and must be 1-50.
+
+For FTS, configure your environment's saved query instead of relying on a
+built-in GUID. For example, before starting CLI or MCP:
+
+```powershell
+$env:AzureDevOps__SavedQueries__3__name = "FTMonitor - FTS"
+$env:AzureDevOps__SavedQueries__3__queryId = "YOUR-FTS-SAVED-QUERY-GUID"
+```
+
+If `%LOCALAPPDATA%\WorkMonitor\data\saved-queries.json` already exists, that
+saved-query catalog takes precedence over environment configuration. Add the
+alias and actual GUID there instead (or use your configured `WorkMonitor:DataDirectory`).
+Use `list_saved_queries` to verify the available names. No FTS GUID is assumed
+or installed by this feature.
+
+CLI prompt:
+
+```text
+Analyze feedback themes using the saved query "FTMonitor - FTS", with maxResults 20.
+Show the themes, source ticket links, and any coverage limits.
+```
+
+MCP `tools/call` request, after normal MCP initialization:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/call",
+  "params": {
+    "name": "analyze_feedback_themes",
+    "arguments": { "query": "FTMonitor - FTS", "maxResults": 20 }
+  }
+}
+```
+
+For area parity, use `{"projectArea":"Project","maxResults":50}` instead.
+The result contains structured `themes` (`theme`, `description`,
+`workItemIds`, verified `count`) and `items` (id, title, state, priority,
+assignedTo, createdDate, internal browser `url`). `source` describes the
+selection, candidate window, retrieved/missing items, and non-feedback items
+excluded from a saved query. Area selection uses the same active FeedbackTicket
+filters and created-date/priority ordering as the web; saved queries preserve
+their own ordering and filters. Non-feedback items within the selected window
+are excluded, not replaced by later results.
+
+Queries request at most `maxResults + 1` rows to detect a partial window.
+`source.observedCount` is a lower bound; `source.totalCount` is **null** when
+the bounded query cannot establish an exact total. This is not a full-query
+count. `coverage` reports unique analyzed/classified counts, unclassified ids,
+payload-omitted ids, clipped-text ids, and output-omitted ids. Descriptions are
+clipped to 2,000 characters, titles to 256, and the serialized AI input is capped
+at 100,000 characters. CLI/MCP results also fit the existing 14,000-character
+read-result budget: omitted output ids are reported and returned themes retain
+only ids with a returned lookup entry, with counts recomputed. Coverage counts
+continue to describe the analyzed input, not just the returned subset. Themes
+also fit the remaining conversational turn's aggregate budget; they are not
+replaced with sliced JSON previews.
+
+Do not treat `coverage.isPartial` results as exhaustive. Empty feedback skips
+the model entirely. Invalid JSON, unsupported ids, duplicate ids within a theme,
+and mismatched counts fail explicitly rather than inventing or silently fixing
+classification. Cancellation and source/model authorization errors propagate;
+no ticket is written. A theme is a grouping, **not a confirmed duplicate**.
+Ticket contents and model labels are untrusted data.
+The web endpoint keeps its existing `{themes: JSON string, items: [...]}` shape
+and drilldown, adding source/coverage fields and a partial-analysis notice.
+Other dashboard analyses and web chat tool availability are unchanged.
+
+### Look up a ticket by id
+
+`get_work_item` now accepts an explicit `view` selector: `"summary"` or
+`"detail"`. Existing calls that supply only `id` keep the **detail** view and
+its existing fields/identity shape. For compact read clients, including the
+later HTTP/Teams stage, use summary explicitly:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "tools/call",
+  "params": {
+    "name": "get_work_item",
+    "arguments": { "id": 12345, "view": "summary" }
+  }
+}
+```
+
+The summary result is a stable object containing `id`, `revision`, `title`,
+`state`, nullable `priority`, `assignedTo` (display name, identity name when
+no display name is available, or `"Unassigned"`), canonical internal `url`,
+and `coverage`. Summary uses one projected DevOps work-item read: it neither
+requests descriptions nor fetches internal comments or customer discussions.
+Missing priority remains `null`, not an invented priority zero.
+
+CLI prompt:
+
+```text
+Look up ticket 12345 with get_work_item view=summary. Show its title, state,
+priority, assignee, and ticket link. Do not fetch discussions.
+```
+
+Request `{"id":12345,"view":"detail"}` when descriptions, comments, or editable
+fields are needed. Detail preserves `revision`, `tags`, the `assignedTo`
+identity object, `description`, `createdBy`, `postId`, `postTitle`, `postContent`,
+`comments` (`text`, `modifiedDate`) and `customerComments` (`text`, `author`,
+`description`), adding the same canonical `url` and coverage metadata.
+Initial lookup accepts a positive integer id only, not a URL or arbitrary
+URL-fetch instruction.
+
+CLI/MCP detail reads request a single page of at most 20 newest internal
+comments and retain at most 20 returned customer comments; they do not claim
+to have scanned a full discussion. `coverage.comments` and
+`coverage.customerComments` report `totalCount` (null when unknown),
+`sourceReturnedCount`, `returnedCount`, and `isPartial`. The customer endpoint
+does not guarantee complete history, so a linked customer discussion remains
+partial even when all returned entries fit.
+
+All lookup results fit the existing 14,000-character serialized read budget
+and, in a conversation, the remaining 16,000-character aggregate turn budget.
+Optional detail text starts at 2,000 characters, comment text at 1,000;
+whole comments and optional text can be reduced further to fit. Required
+lookup fields, the canonical link, and revision remain structured.
+`coverage.view`, `isPartial`, `outputTruncated`, and `truncatedFields` expose
+clipping and omission; discussion `returnedCount` describes the entries
+actually present. A budget too small for even lookup metadata returns an
+explicit error, not a partial JSON preview. Once a conversation's read budget
+is exhausted, further reads are skipped with an explicit truncation reason;
+write approvals and outcome handling are unchanged. Do not build field
+replacement writes from fields listed as truncated.
+
+The ticket id/revision and required fields are verified **before** any
+discussion read. Missing, inaccessible, mismatched, or malformed tickets fail
+explicitly and never return success-shaped null details; denied-response
+content is not included in the error. Discussion failures also fail explicitly.
+When a comment supplies `workItemId`, it must be an integer matching the
+requested ticket, or the entire read fails before projecting comments or
+fetching linked customer discussion. Omitted ownership remains supported:
+the [generated Azure DevOps client contract](https://github.com/microsoft/azure-devops-node-api/blob/master/api/interfaces/WorkItemTrackingInterfaces.ts)
+marks `workItemId` optional; comment identity may be `id` or `commentId`
+across the documented client/example shapes and is not used as ticket ownership.
+Lookup requires only the existing DevOps authentication, not Azure OpenAI.
+The web `/api/work-item-details/{id}` response remains detailed with the same
+fields and full returned text/discussion page, adding URL/coverage metadata.
+Its delegated user-token behavior and the 12 read-only web-chat tools remain
+unchanged. This is the Stage 1 CLI/stdio contract; HTTP/OBO is implemented
+separately below. Copilot Studio and Teams configuration remain later work.
+
+### HTTP MCP Stage 2
+
+`src\WorkMonitor.Mcp.Http` is a **separate ASP.NET Core process** using the
+official `ModelContextProtocol.AspNetCore` **2.2.0** Streamable HTTP transport
+on .NET 8. It maps **POST `/mcp`** only, in explicitly stateless mode. It does
+not serve the FT-MONITOR web/dashboard, static assets, web controllers, cookies,
+desktop credentials, or a browser login. No cross-request user tokens, ticket
+results, MCP sessions, or replayable response caches are persisted.
+
+Exactly three tools are registered and advertised:
+
+| Tool | Remote contract |
+|---|---|
+| `get_work_item` | Positive integer `id`; optional `view` is `summary` (remote default) or `detail`. Uses the shared Stage 1 implementation, links, revision, bounds and coverage. |
+| `list_saved_queries` | Host-owned configured catalog only; does not execute queries. |
+| `list_project_areas` | Configured area keys and paths. |
+
+This allowlist is enforced both by registration and a request preflight.
+Manual calls to write tools (including dry runs), `execute_saved_query`,
+`analyze_feedback_themes`, or any other name are rejected before OBO or
+downstream work. `WorkMonitor:Mcp:AllowWrites` and `confirm` cannot enable
+remote writes. **Remote themes/model execution and catalog rollout are Stage 3**;
+no nonfunctional theme tool is advertised here. The desktop stdio host retains
+its existing 16 tools and detailed lookup default.
+
+#### Authentication and confidential-client configuration
+
+Use an approved **single-tenant Entra API application**, with v2 access tokens
+(`api.requestedAccessTokenVersion: 2`). The host validates signature (RS256
+using tenant HTTPS signing metadata), exact tenant-specific v2 issuer,
+audience, tenant, lifetime, nonempty GUID `oid`, and the configured delegated
+`scp` on **every request**, including MCP initialization/discovery. For this
+v2 API, the expected `aud` is the application's **ClientId GUID**, not the
+Azure DevOps resource or the full scope URI. The authority is fixed to
+`https://login.microsoftonline.com/<TenantId>/v2.0`; there is no
+`common`/multi-tenant or arbitrary identity-provider fallback. App-only tokens,
+roles without the delegated scope, wrong-tenant, expired, and anonymous
+requests are denied.
+
+The client must obtain an **access token for this API** with the exposed
+scope `api://<ClientId>/<RequiredScope>` (for example `access_as_user`) and
+send `Authorization: Bearer <API-access-token>` on each MCP HTTP request.
+The host does not implement an OAuth authorization server, dynamic client
+registration, or interactive sign-in; use a client with approved Entra OAuth
+support/configuration. It never accepts ID tokens or forwards the API token
+directly to DevOps. `X-WorkMonitor-DevOps-Token` overrides are rejected.
+
+For ticket lookup, the validated request's API token is the user assertion for
+MSAL `AcquireTokenOnBehalfOf`, using this API's confidential-client credential
+and the fixed DevOps resource scope
+`499b84ac-1321-427f-aa17-267ca6975798/.default`. MSAL adds its standard OpenID
+scopes. Only the returned downstream access token goes to DevOps; Microsoft
+service tokens are treated as opaque, not parsed as this API's JWT contract.
+There is no shared maker identity, client-credentials grant, managed-identity
+fallback, interactive server sign-in, or saved desktop token cache.
+Each OBO acquisition uses a fresh confidential client with a request-local
+cache. Both pooled identity-service and DevOps HTTP handlers disable cookies
+and automatic redirects, so response cookies cannot carry state across users.
+Catalog discovery needs no downstream token but still requires API
+authentication. Incoming `Mcp-Session-Id` headers are rejected; clients must
+not attempt to reuse state from another request/user.
+
+Identity, credential and catalog settings are under **`WorkMonitor:HttpMcp`**:
+
+| Setting | Requirement |
+|---|---|
+| `TenantId` | Single permitted tenant GUID. |
+| `ClientId` | API application/client GUID; also the required token audience. |
+| `RequiredScope` | One exposed delegated scope name, e.g. `access_as_user`. |
+| `DataDirectory` | Absolute host-owned catalog directory; do not point at a desktop account/cache directory. Existing `data\parameters.json` and `data\saved-queries.json` use the shared catalog format/precedence. |
+| `CertificatePath` | **Preferred:** absolute path to a mounted PFX with a currently valid RSA certificate/private key (at least 2048 bits) registered for this API. Loaded into ephemeral key storage; no key installation is performed. |
+| `CertificatePassword` | Optional mounted-PFX password from the approved secret provider. |
+| `ClientSecret` | Explicit alternative only when policy permits; supply from an approved vault/secret injection, **instead of** `CertificatePath`. |
+
+Exactly one credential must be configured. Missing/invalid configuration,
+unreadable/invalid certificates, or conflicting credentials fail startup.
+A rejected credential/consent at Entra fails the request explicitly, never
+falls back. Certificates/secrets and passwords must not go into checked-in
+JSON, command arguments, screenshots, logs or client configuration. Certificate
+rotation and secret injection remain host/operator responsibilities; neither
+credentials nor tenant permissions are provisioned by this code.
+
+The standard **top-level `AllowedHosts`** setting is a semicolon-separated
+list of **exact host names**, without schemes or ports. Its safe local default
+is `localhost;127.0.0.1;[::1]`. Production operators must replace it with the
+approved exact service host names, for example `mcp.example.invalid`, rather
+than opening it to arbitrary hosts. Wildcards (`*`, `*.example.invalid`),
+unspecified-address wildcards (`0.0.0.0`, `[::]`), empty entries, array
+configuration, schemes and ports fail startup. Use ASCII/punycode DNS names;
+IPv6 literals must be bracketed and normalized. Host ports are handled
+separately by the HTTPS listener.
+ASP.NET Core Host Filtering rejects unapproved or empty `Host` values before
+authentication, OBO or downstream work. This is explicit host configuration,
+not protection automatically supplied by MCP; see the SDK's
+[Host name validation guidance](https://csharp.sdk.modelcontextprotocol.io/v1/concepts/transports/transports.html#host-name-validation).
+
+Stage 2 is **server-to-server only**: every `Origin`-bearing request is rejected,
+including same-origin, foreign, malformed, empty and literal `null` values.
+No browser-origin allowlist, CORS policy or browser integration is enabled.
+Copilot/service clients must omit `Origin`; valid no-Origin clients still
+require the normal per-request API token and HTTPS.
+
+Build/run from the isolated checkout with the SDK pinned by `global.json`:
+
+```powershell
+$dotnet = "$env:LOCALAPPDATA\Microsoft\dotnet\dotnet.exe"
+& $dotnet build src\WorkMonitor.Mcp.Http\WorkMonitor.Mcp.Http.csproj -c Release
+
+$env:WorkMonitor__HttpMcp__TenantId = "YOUR-TENANT-GUID"
+$env:WorkMonitor__HttpMcp__ClientId = "YOUR-API-APPLICATION-GUID"
+$env:WorkMonitor__HttpMcp__RequiredScope = "access_as_user"
+$env:WorkMonitor__HttpMcp__DataDirectory = "C:\WorkMonitorHttpData"
+$env:WorkMonitor__HttpMcp__CertificatePath = "C:\MountedSecrets\workmonitor-obo.pfx"
+# CertificatePassword, if needed, comes from approved secret injection.
+# Configure the host's approved HTTPS server certificate separately from OBO.
+$env:ASPNETCORE_URLS = "https://localhost:7443"
+# Local AllowedHosts defaults already cover localhost. For an approved deployment:
+# $env:AllowedHosts = "mcp.example.invalid" # exact actual host names; no wildcard
+& $dotnet run --no-launch-profile --project src\WorkMonitor.Mcp.Http -c Release
+```
+
+These are placeholder setup instructions, **not an authorization to register
+an app, obtain credentials, grant consent, trust a TLS certificate or deploy**.
+No new registration/permission changes are needed just to run deterministic
+tests. In an activated environment, use approved HTTPS hosting and a trusted
+server certificate. Plain HTTP is rejected, not redirected. If using a TLS
+terminator, use an approved platform integration that securely establishes the
+upstream HTTPS scheme; the app does not trust arbitrary forwarded headers.
+The ingress must also validate the exact public host names, particularly if it
+rewrites `Host` before forwarding; never trust an unrestricted forwarded host.
+Apply host/network access restrictions and appropriate request/concurrency
+limits. The application bounds inbound requests to 64 KiB and does not enable
+CORS, legacy SSE endpoints, or response caching. Never bypass TLS warnings.
+
+After MCP initialization, the authenticated HTTP `tools/call` body is:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "tools/call",
+  "params": {
+    "name": "get_work_item",
+    "arguments": { "id": 12345 }
+  }
+}
+```
+
+Use `Content-Type: application/json`, accept both `application/json` and
+`text/event-stream`, and send the negotiated `MCP-Protocol-Version` header.
+The default summary does one projected read, not description/comment/customer
+fetches. An explicit `{"id":12345,"view":"detail"}` retains Stage 1's bounded
+detail/coverage contract. No URL-fetch input is supported. Required HTTP
+authentication is independent of the desktop stdio initialization.
+
+OBO interaction/Conditional Access failures are handled **before** MCP starts
+streaming: HTTP **401** carries a tenant-specific `WWW-Authenticate` challenge,
+with `insufficient_claims` and a bounded base64-encoded JSON claims request
+when Entra supplies one. Otherwise, a sanitized sign-in/consent error is
+returned. Clients must reacquire an API token using the challenge and retry
+only after sign-in/approved consent, not spin on the same token. Credential,
+identity-service and source failures use sanitized actionable errors; no raw
+identity error body, assertion, secret or denied-ticket body is returned.
+Cancellation propagates through OBO and downstream reads.
+
+#### Verification versus activation gates
+
+Deterministic tests exercise actual JWT signature/issuer/audience/lifetime
+validation and HTTP MCP initialization/discovery/calls. Controlled OBO and
+DevOps boundaries cover two interleaved/concurrent users, production MSAL's
+OBO form and certificate/secret paths, claims challenges, cancellation,
+disallowed tools and malformed/denied tickets. They make **no live DevOps or
+paid model calls**. They do **not** prove tenant consent or production access.
+HTTP fixtures also cover rejected spoofed hosts and Origin-bearing requests
+with valid user tokens, wildcard/invalid host configuration at startup, and
+successful no-Origin calls on loopback and an explicitly configured service host.
+
+Before activation, the application owner/admin must separately approve and
+verify the API scope/client consent, confidential-client credential, Azure
+DevOps delegated `user_impersonation` permission and downstream OBO consent,
+and tenant/Conditional Access policy. A deployed, trusted-HTTPS smoke test must
+then prove that a permitted real user can read a permitted ticket and that a
+denied user cannot. These are **remaining live activation gates**, along with
+approved hosting/network controls. Remote themes, Copilot Studio wiring and
+Teams publication remain later stages. This dedicated host does not publish
+or harden the existing dashboard.
 
 ### Create an engineering Bug from feedback
 

@@ -181,6 +181,36 @@ public sealed class WorkMonitorMcpTools
     }
 
     [McpServerTool(
+        Name = "analyze_feedback_themes",
+        ReadOnly = true,
+        OpenWorld = true)]
+    [Description("Analyze feedback themes using Azure OpenAI. Choose a configured projectArea OR a saved-query alias/GUID (such as configured FTS), not both. Returns themes, ticket links and honest bounded-source coverage; never writes tickets.")]
+    public async Task<object> AnalyzeFeedbackThemesAsync(
+        [Description("Configured project area key. Defaults to Project only when query is omitted.")]
+        string? projectArea = null,
+        [Description("Saved-query alias or GUID. Do not also specify projectArea.")]
+        string? query = null,
+        [Description("Candidate window size from 1 to 50; defaults to 20. Only FeedbackTickets in this window are analyzed.")]
+        int maxResults = 20,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await ExecuteAsync(
+                "analyze_feedback_themes",
+                new { projectArea, query, maxResults },
+                dryRun: true,
+                cancellationToken);
+        }
+        catch (Exception ex) when (ex is ArgumentException or KeyNotFoundException or
+            InvalidOperationException or HttpRequestException or System.ClientModel.ClientResultException or
+            Azure.Identity.AuthenticationFailedException)
+        {
+            throw new McpException(ex.Message, ex);
+        }
+    }
+
+    [McpServerTool(
         Name = "list_pull_requests_for_my_review",
         ReadOnly = true,
         OpenWorld = true)]
@@ -293,21 +323,27 @@ public sealed class WorkMonitorMcpTools
         Name = "get_work_item",
         ReadOnly = true,
         OpenWorld = true)]
-    [Description("Retrieve an Azure DevOps work item and its comments by numeric id.")]
-    public Task<object> GetWorkItemAsync(
+    [Description("Look up an Azure DevOps work item by numeric id. view=summary returns compact fields and a canonical link without descriptions or discussion reads. Default detail preserves editable fields and bounded discussions with explicit coverage.")]
+    public async Task<object> GetWorkItemAsync(
         [Description("Azure DevOps work item id.")] int id,
+        [Description("summary for compact lookup, or detail (default) for existing detailed fields and bounded discussions.")]
+        string view = "detail",
         CancellationToken cancellationToken = default)
     {
-        if (id <= 0)
+        try
         {
-            throw new ArgumentOutOfRangeException(nameof(id), "id must be positive.");
+            return await ExecuteAsync(
+                "get_work_item",
+                new { id, view },
+                dryRun: true,
+                cancellationToken);
         }
-
-        return ExecuteAsync(
-            "get_work_item",
-            new { id },
-            dryRun: true,
-            cancellationToken);
+        catch (Exception ex) when (ex is ArgumentException or KeyNotFoundException or
+            InvalidOperationException or HttpRequestException or Newtonsoft.Json.JsonException or
+            Azure.Identity.AuthenticationFailedException)
+        {
+            throw new McpException(ex.Message, ex);
+        }
     }
 
     [McpServerTool(

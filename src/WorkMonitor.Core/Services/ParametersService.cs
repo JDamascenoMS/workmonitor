@@ -90,6 +90,21 @@ namespace WorkMonitor.Core.Services
             }
         }
 
+        public (string Name, string QueryId) ResolveSavedQuery(string query)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(query);
+            var match = GetSavedQueries().FirstOrDefault(item =>
+                item.Key.Equals(query, StringComparison.OrdinalIgnoreCase));
+            var queryId = string.IsNullOrWhiteSpace(match.Value) ? query : match.Value;
+            if (!Guid.TryParse(queryId, out var id))
+            {
+                throw new KeyNotFoundException(
+                    $"Saved query '{query}' was not found. Call list_saved_queries first.");
+            }
+
+            return (string.IsNullOrWhiteSpace(match.Key) ? id.ToString() : match.Key, id.ToString());
+        }
+
         public void AddSavedQuery(string name, string queryId)
         {
             lock (_lock)

@@ -88,6 +88,8 @@ public static class Program
         builder.Services.AddSingleton<IAgentTool, ListMyMentionedItemsTool>();
         builder.Services.AddSingleton<IAgentTool, ListSavedQueriesTool>();
         builder.Services.AddSingleton<IAgentTool, ExecuteSavedQueryTool>();
+        builder.Services.AddFeedbackThemeAnalysis();
+        builder.Services.AddSingleton<IAgentTool, AnalyzeFeedbackThemesTool>();
         builder.Services.AddSingleton<IAgentTool, ListPullRequestsForReviewTool>();
         builder.Services.AddSingleton<IAgentTool, ListMyRecentActivityTool>();
         builder.Services.AddSingleton<IAgentTool, CorrelateWorkItemWithGitHubTool>();

@@ -38,7 +38,8 @@ namespace WorkMonitor.Core.Clients
         }
         public async Task<WiqlResponse> GetWiqlIdResponse(
             string queryId,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            int? top = null)
         {
             if (!Guid.TryParse(queryId, out _))
             {
@@ -48,6 +49,8 @@ namespace WorkMonitor.Core.Clients
             }
 
             string Url = $"{Constants.ApiUrlBase}/{Constants.Organization}/{Constants.Project}/_apis/wit/wiql/{Uri.EscapeDataString(queryId)}?{Constants.ApiVersion}";
+            if (top.HasValue)
+                Url += $"&$top={top.Value}";
             var response = await GenericCallGet(Url, cancellationToken);
             var ret = JsonConvert.DeserializeObject<WiqlResponse>(response);
             return ret;
@@ -293,14 +296,26 @@ namespace WorkMonitor.Core.Clients
 
         public async Task<WorkItemResponse> GetTopFeedbackByPriority(string projectArea, string assignedTo = null)
         {
+            return await GetWorkItemsFromWiqlQuery(BuildFeedbackQuery(projectArea, assignedTo), top: 200);
+        }
+
+        private static string BuildFeedbackQuery(string projectArea, string? assignedTo = null)
+        {
             string areaPath = !Constants.ProjectAreaPath.TryGetValue(projectArea, out string val)
                 ? throw new Exception("Project area not found in constants.")
                 : val;
+            return BuildFeedbackQueryForAreaPath(areaPath, assignedTo);
+        }
+
+        private static string BuildFeedbackQueryForAreaPath(string areaPath, string? assignedTo = null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(areaPath);
+            areaPath = AzureDevOpsQueryValues.EscapeLiteral(areaPath);
 
             string assigneeFilter = assignedTo == "__none__"
                 ? "AND [System.AssignedTo] = ''"
                 : !string.IsNullOrEmpty(assignedTo)
-                    ? $"AND [System.AssignedTo] = '{assignedTo}'"
+                    ? $"AND [System.AssignedTo] = '{AzureDevOpsQueryValues.EscapeLiteral(assignedTo)}'"
                     : "";
 
             string query = @$"SELECT [System.Id], [System.Title], [System.State], 
@@ -316,7 +331,7 @@ namespace WorkMonitor.Core.Clients
                                 {assigneeFilter}
                               ORDER BY [System.CreatedDate] DESC, [Microsoft.VSTS.Common.Priority] ASC";
 
-            return await GetWorkItemsFromWiqlQuery(query, top: 200);
+            return query;
         }
 
         public async Task<WorkItemResponse> SearchByArea(
@@ -802,7 +817,8 @@ namespace WorkMonitor.Core.Clients
 
         public async Task<VsDivCommentResponse?> GetVSDivCommentsByPostId(
             string PostId,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            bool throwOnFailure = false)
         {
             try
             {
@@ -815,21 +831,23 @@ namespace WorkMonitor.Core.Clients
                     cancellationToken);
                 response.EnsureSuccessStatusCode();
                 var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-                return JsonConvert.DeserializeObject<VsDivCommentResponse>(responseBody);
+                return throwOnFailure
+                    ? ParseRequiredCustomerDiscussion(responseBody)
+                    : JsonConvert.DeserializeObject<VsDivCommentResponse>(responseBody);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (!throwOnFailure)
             {
                 return null;
             }
-            catch (HttpRequestException)
+            catch (HttpRequestException) when (!throwOnFailure)
             {
                 return null;
             }
-            catch (JsonException)
+            catch (JsonException) when (!throwOnFailure)
             {
                 return null;
             }

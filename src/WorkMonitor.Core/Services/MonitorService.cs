@@ -156,53 +156,86 @@ namespace WorkMonitor.Core.Services
                 .ToList();
         }
 
+        public async Task<object> GetWorkItemSummary(
+            int workItemId, CancellationToken cancellationToken = default)
+        {
+            var item = await CreateClient().GetRequiredWorkItem(workItemId, summaryOnly: true, cancellationToken);
+            return new
+            {
+                id = item.id,
+                revision = item.rev,
+                title = item.fields.Title,
+                state = item.fields.State,
+                priority = item.ReadPriority,
+                assignedTo = string.IsNullOrWhiteSpace(item.fields.AssignedTo?.displayName)
+                    ? item.fields.AssignedTo?.uniqueName ?? "Unassigned"
+                    : item.fields.AssignedTo.displayName,
+                url = MonitorClient.WorkItemBrowserUrl(item.id)
+            };
+        }
+
         public async Task<object> GetWorkItemDetails(
             int workItemId,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            bool boundedDiscussion = false)
         {
             var client = CreateClient();
-            var comments = await client.GetCommentsByWorkItem(
-                workItemId,
-                cancellationToken);
-            var workItemResponse = await client.GetWorkItems(
-                new List<int> { workItemId },
-                cancellationToken);
-
-            var workItem = workItemResponse?.value?.FirstOrDefault();
+            var workItem = await client.GetRequiredWorkItem(workItemId, cancellationToken: cancellationToken);
+            var discussion = await client.GetWorkItemReadDiscussion(workItemId, cancellationToken,
+                maxResults: boundedDiscussion ? 20 : null);
             VsDivCommentResponse? customerComments = null;
 
-            if (workItem?.fields?.PostId != null)
+            if (!string.IsNullOrWhiteSpace(workItem.fields.PostId))
             {
                 customerComments = await client.GetVSDivCommentsByPostId(
-                    workItem.fields.PostId,
-                    cancellationToken);
+                    workItem.fields.PostId, cancellationToken, throwOnFailure: true);
             }
 
             return new
             {
-                id = workItem?.id,
-                revision = workItem?.rev,
-                title = workItem?.fields?.Title,
-                description = workItem?.fields?.Description,
-                state = workItem?.fields?.State,
-                assignedTo = workItem?.fields?.AssignedTo,
-                priority = workItem?.fields?.Priority,
-                tags = workItem?.fields?.Tags,
-                createdBy = workItem?.fields?.CreatedBy?.displayName,
-                postId = workItem?.fields?.PostId,
+                id = workItem.id,
+                revision = workItem.rev,
+                title = workItem.fields.Title,
+                description = workItem.fields.Description,
+                state = workItem.fields.State,
+                assignedTo = workItem.fields.AssignedTo,
+                priority = workItem.ReadPriority,
+                tags = workItem.fields.Tags,
+                createdBy = workItem.fields.CreatedBy?.displayName,
+                postId = workItem.fields.PostId,
                 postTitle = customerComments?.title,
                 postContent = customerComments?.content,
-                comments = comments?.comments?.Select(c => new
+                url = MonitorClient.WorkItemBrowserUrl(workItem.id),
+                comments = discussion.Comments.Select(c => new
                 {
                     c.text,
                     c.modifiedDate
                 }).ToList(),
-                customerComments = customerComments?.children?.Select(c => new
+                customerComments = customerComments?.children?.Take(boundedDiscussion ? 20 : int.MaxValue).Select(c => new
                 {
                     c.text,
                     author = c.author?.name,
                     c.description
-                }).ToList()
+                }).ToList(),
+                coverage = new
+                {
+                    isPartial = discussion.IsPartial || customerComments != null,
+                    comments = new
+                    {
+                        totalCount = discussion.TotalCount,
+                        sourceReturnedCount = discussion.SourceReturnedCount,
+                        returnedCount = discussion.Comments.Count,
+                        isPartial = discussion.IsPartial
+                    },
+                    customerComments = new
+                    {
+                        totalCount = (int?)null,
+                        sourceReturnedCount = customerComments?.children?.Count ?? 0,
+                        returnedCount = Math.Min(customerComments?.children?.Count ?? 0, boundedDiscussion ? 20 : int.MaxValue),
+                        isPartial = customerComments != null,
+                        completeness = customerComments == null ? "No linked customer discussion" : "Customer endpoint does not guarantee complete history"
+                    }
+                }
             };
         }
 

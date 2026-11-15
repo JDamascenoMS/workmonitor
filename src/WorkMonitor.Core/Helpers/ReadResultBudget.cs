@@ -8,13 +8,14 @@ public static class ReadResultBudget
 
     public static TResult FitCollection<TItem, TResult>(
         IReadOnlyList<TItem> items,
-        Func<IReadOnlyList<TItem>, bool, TResult> createResult)
+        Func<IReadOnlyList<TItem>, bool, TResult> createResult,
+        int maxCharacters = MaxCharacters)
     {
         for (var count = items.Count; count >= 0; count--)
         {
             var retained = items.Take(count).ToArray();
             var result = createResult(retained, count < items.Count);
-            if (JsonSerializer.Serialize(result).Length <= MaxCharacters)
+            if (JsonSerializer.Serialize(result).Length <= maxCharacters)
             {
                 return result;
             }

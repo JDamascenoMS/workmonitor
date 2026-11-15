@@ -26,6 +26,76 @@ public sealed class WebConversationTests
     private const string Bob = "22222222-2222-2222-2222-222222222222";
 
     [Fact]
+    public async Task WebLookupKeepsDetailedShapeAndDelegatedToken()
+    {
+        await using var app = new ChatFactory();
+        using var client = app.UserClient(Alice);
+        var response = await client.GetAsync("/api/work-item-details/42");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+        WorkItemLookupTests.AssertLookup(result);
+        Assert.Equal("<p>Details</p>", result.GetProperty("description").GetString());
+        Assert.Equal("engineer@example.com", result.GetProperty("assignedTo").GetProperty("uniqueName").GetString());
+        Assert.Single(result.GetProperty("comments").EnumerateArray());
+        Assert.Single(result.GetProperty("customerComments").EnumerateArray());
+        Assert.DoesNotContain("$top", app.LookupSource.Paths[1]);
+        Assert.All(app.LookupSource.Authorization.Take(2), token => Assert.Equal("Bearer test-user-token", token));
+        Assert.Null(app.LookupSource.Authorization[2]);
+        Assert.Equal(Alice, Assert.Single(app.Tokens.RequestedUsers));
+        Assert.Empty(app.Model.Requests);
+    }
+
+    [Fact]
+    public async Task WebLookupMissingTicketDoesNotReturnNullDetails()
+    {
+        await using var app = new ChatFactory();
+        app.LookupSource.ItemJson = """{"value":[]}""";
+        using var client = app.UserClient(Alice);
+        var response = await client.GetAsync("/api/work-item-details/42");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Contains("not found or is not accessible", await response.Content.ReadAsStringAsync());
+        Assert.Single(app.LookupSource.Paths);
+    }
+
+    [Fact]
+    public async Task WebThemesPreserveDashboardContractAndDelegatedToken()
+    {
+        await using var app = new ChatFactory();
+        using var client = app.UserClient(Alice);
+        var response = await client.GetAsync("/api/feedback-themes?projectArea=Project");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(JsonValueKind.String, result.GetProperty("themes").ValueKind);
+        var theme = Assert.Single(JsonSerializer.Deserialize<JsonElement>(result.GetProperty("themes").GetString()!).EnumerateArray());
+        Assert.Equal("Reload", theme.GetProperty("theme").GetString());
+        Assert.Equal(1, theme.GetProperty("count").GetInt32());
+        var item = Assert.Single(result.GetProperty("items").EnumerateArray());
+        Assert.Equal(1, item.GetProperty("id").GetInt32());
+        Assert.True(item.TryGetProperty("title", out _));
+        Assert.True(item.TryGetProperty("state", out _));
+        Assert.True(item.TryGetProperty("priority", out _));
+        Assert.True(item.TryGetProperty("assignedTo", out _));
+        Assert.True(item.TryGetProperty("createdDate", out _));
+        Assert.Equal(200, result.GetProperty("source").GetProperty("maxResults").GetInt32());
+        Assert.Equal(1, result.GetProperty("coverage").GetProperty("analyzedCount").GetInt32());
+        Assert.All(app.ThemeSource.Tokens, token => Assert.Equal("Bearer test-user-token", token));
+        Assert.Equal(Alice, Assert.Single(app.Tokens.RequestedUsers));
+        Assert.Single(app.Themes.Payloads);
+    }
+
+    [Fact]
+    public async Task WebThemesRejectInvalidAreaBeforeTokenOrModelUse()
+    {
+        await using var app = new ChatFactory();
+        using var client = app.UserClient(Alice);
+        var response = await client.GetAsync("/api/feedback-themes?projectArea=NotConfigured");
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(app.ThemeSource.Paths);
+        Assert.Empty(app.Themes.Payloads);
+        Assert.Empty(app.Tokens.RequestedUsers);
+    }
+
+    [Fact]
     public async Task AnonymousRequestsAreRejected()
     {
         await using var app = new ChatFactory();
@@ -263,6 +333,9 @@ public sealed class WebConversationTests
 
         public RecordingModel Model { get; } = new();
         public UserTokenService Tokens { get; } = new();
+        public ThemeClassifier Themes { get; } = new();
+        public ThemeSourceHandler ThemeSource { get; } = new([1]);
+        public LookupSourceHandler LookupSource { get; } = new();
 
         public HttpClient UserClient(string userId, string scope = "access_as_user")
         {
@@ -283,7 +356,10 @@ public sealed class WebConversationTests
                 configuration.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["AzureAd:TenantId"] = "72f988bf-86f1-41af-91ab-2d7cd011db47",
-                    ["AzureAd:ClientId"] = "33333333-3333-3333-3333-333333333333"
+                    ["AzureAd:ClientId"] = "33333333-3333-3333-3333-333333333333",
+                    ["AzureOpenAI:Endpoint"] = "https://example.invalid/",
+                    ["AzureOpenAI:DeploymentName"] = "fixture",
+                    ["AzureOpenAI:ApiKey"] = "fixture-no-network"
                 }));
             builder.ConfigureTestServices(services =>
             {
@@ -294,6 +370,9 @@ public sealed class WebConversationTests
                 }).AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", _ => { });
                 services.RemoveAll<IAgentModel>();
                 services.AddSingleton<IAgentModel>(Model);
+                services.AddSingleton<IFeedbackThemeClassifier>(Themes);
+                services.AddHttpClient("FeedbackThemes").ConfigurePrimaryHttpMessageHandler(() => ThemeSource);
+                services.AddHttpClient("WorkItemLookup").ConfigurePrimaryHttpMessageHandler(() => LookupSource);
                 services.RemoveAll<IWebDevOpsTokenService>();
                 services.AddScoped<IWebDevOpsTokenService>(provider =>
                     new UserTokenServiceScope(

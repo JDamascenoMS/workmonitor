@@ -14,7 +14,7 @@ public partial class MonitorClient
 
     public static string FeedbackWorkItemUrl(int id) => $"{WorkItemApiBase}/workitems/{id}";
 
-    private static string WorkItemBrowserUrl(int id) =>
+    public static string WorkItemBrowserUrl(int id) =>
         $"{Constants.ApiUrlBase.TrimEnd('/')}/{Uri.EscapeDataString(Constants.Organization)}/{Uri.EscapeDataString(Constants.Project)}/_workitems/edit/{id}";
 
     public async Task<CreatedBugResult> CreateBugFromFeedback(
