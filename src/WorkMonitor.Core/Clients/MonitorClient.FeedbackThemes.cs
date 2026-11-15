@@ -19,10 +19,16 @@ public partial class MonitorClient
         var response = queryId != null
             ? await GetWiqlIdResponse(queryId, cancellationToken, top: maxResults + 1)
             : await ExecuteWiqlQuery(BuildFeedbackQueryForAreaPath(areaPath!), maxResults + 1, cancellationToken);
-        if (response == null)
+        if (response == null || (response.workItems == null && response.workItemRelations == null))
             throw new InvalidOperationException("Azure DevOps returned no query response.");
+        if (response.workItems?.Any(item => item == null || item.id <= 0) == true ||
+            response.workItemRelations?.Any(relation => relation == null ||
+                relation.source?.id <= 0 || relation.target?.id <= 0) == true)
+            throw new InvalidOperationException("Azure DevOps returned malformed query ids.");
 
         var ids = ExtractWorkItemIds(response);
+        if (ids.Any(id => id <= 0))
+            throw new InvalidOperationException("Azure DevOps returned malformed query ids.");
         var rowCount = Math.Max(response.workItems?.Count ?? 0, response.workItemRelations?.Count ?? 0);
         // A capped relation query can contain more ids than rows; neither is an exact total.
         var queryTruncated = rowCount >= maxResults + 1;
@@ -35,6 +41,11 @@ public partial class MonitorClient
         var batch = await GetWorkItems(selectedIds.ToList(), cancellationToken);
         var values = batch?.value
             ?? throw new InvalidOperationException("Azure DevOps returned no work-item batch.");
+        if (values.Any(item => item == null || !selectedIds.Contains(item.id) ||
+            item.fields == null || string.IsNullOrWhiteSpace(item.fields.Title) ||
+            string.IsNullOrWhiteSpace(item.fields.State) || string.IsNullOrWhiteSpace(item.fields.WorkItemType)) ||
+            values.Select(item => item.id).Distinct().Count() != values.Count)
+            throw new InvalidOperationException("Azure DevOps returned malformed feedback candidate data.");
         var lookup = values.ToDictionary(item => item.id);
         var items = selectedIds.Where(lookup.ContainsKey).Select(id => lookup[id]).ToArray();
         return new FeedbackCandidateWindow(

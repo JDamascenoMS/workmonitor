@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.Identity.Client;
 using System.Text;
 using System.Text.Json;
+using System.Threading.RateLimiting;
+using WorkMonitor.Agent;
 using WorkMonitor.Agent.Tools;
 
 namespace WorkMonitor.Mcp.Http;
@@ -95,16 +97,36 @@ public sealed class HttpMcpRequestMiddleware(RequestDelegate next)
                         await ToolError(context, root, "Use a positive integer id and optional view=summary or view=detail; no other arguments are accepted.");
                         return;
                     }
-                    if (!await AcquireAsync(context, settings, acquirer, requestToken))
+                    if (!await AcquireAsync(context, settings, acquirer, requestToken, context.RequestAborted))
                         return;
+                }
+                else if (name == "analyze_feedback_themes")
+                {
+                    if (!context.Request.HasJsonContentType())
+                    {
+                        await Error(context, 415, "json_content_type_required", "Use a JSON Content-Type for MCP requests.");
+                        return;
+                    }
+                    var themeRequest = root.Clone();
+                    context.RequestServices.GetRequiredService<RequestThemeAnalysis>().Preflight = () =>
+                        AnalyzeThemesAsync(context, settings, acquirer, requestToken,
+                            themeRequest, themeRequest.GetProperty("params"));
                 }
             }
         }
-        await next(context);
+        try
+        {
+            await next(context);
+        }
+        catch (RequestThemeAnalysis.PreflightRejectedException) when (context.Response.HasStarted)
+        {
+            // Preflight already wrote the HTTP failure; do not let the SDK start SSE.
+            return;
+        }
     }
 
     private static async Task<bool> AcquireAsync(HttpContext context, HttpMcpSettings settings,
-        IDevOpsOboTokenAcquirer acquirer, RequestDevOpsToken requestToken)
+        IDevOpsOboTokenAcquirer acquirer, RequestDevOpsToken requestToken, CancellationToken cancellationToken)
     {
         if (!HttpMcpAuthentication.IsDelegatedUser(context.User, settings))
         {
@@ -119,7 +141,8 @@ public sealed class HttpMcpRequestMiddleware(RequestDelegate next)
         }
         try
         {
-            var token = await acquirer.AcquireAsync(assertion, context.RequestAborted);
+            var token = await acquirer.AcquireAsync(assertion, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             if (string.IsNullOrWhiteSpace(token) || token == assertion)
             {
                 await Error(context, 502, "invalid_obo_result", "Azure DevOps OBO did not return a separate downstream token.");
@@ -147,9 +170,91 @@ public sealed class HttpMcpRequestMiddleware(RequestDelegate next)
         {
             await Error(context, 502, "identity_service_unavailable", "The identity service could not complete on-behalf-of authentication.");
         }
-        catch (OperationCanceledException) when (!context.RequestAborted.IsCancellationRequested)
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             await Error(context, 504, "identity_service_timeout", "On-behalf-of authentication timed out.");
+        }
+        return false;
+    }
+
+    private static async Task<bool> AnalyzeThemesAsync(HttpContext context, HttpMcpSettings settings,
+        IDevOpsOboTokenAcquirer acquirer, RequestDevOpsToken requestToken, JsonElement root, JsonElement parameters)
+    {
+        var tool = context.RequestServices.GetRequiredService<AnalyzeFeedbackThemesTool>();
+        if (!root.TryGetProperty("jsonrpc", out var version) || version.ValueKind != JsonValueKind.String ||
+            version.GetString() != "2.0" || !root.TryGetProperty("id", out var id) ||
+            id.ValueKind is not (JsonValueKind.String or JsonValueKind.Number) ||
+            id.GetRawText().Length > 128 || (id.ValueKind == JsonValueKind.Number && !id.TryGetInt64(out _)) ||
+            root.EnumerateObject().Select(property => property.Name).Distinct().Count() != root.EnumerateObject().Count())
+        {
+            await Error(context, 400, "invalid_theme_request", "Expected one JSON-RPC 2.0 theme request with an id and no duplicate fields.");
+            return false;
+        }
+        var arguments = parameters.TryGetProperty("arguments", out var args) ? args : JsonSerializer.SerializeToElement(new { });
+        try
+        {
+            if (arguments.ValueKind == JsonValueKind.Object &&
+                arguments.EnumerateObject().Any(property => property.Value.ValueKind == JsonValueKind.Null))
+                throw new ArgumentException("Explicit null theme arguments are not supported.");
+            tool.ParseRequest(arguments);
+        }
+        catch (Exception ex) when (ex is ArgumentException or KeyNotFoundException)
+        {
+            await ToolError(context, root, "Use a configured projectArea OR saved-query name/GUID, and maxResults between 1 and 50. Call list_saved_queries/list_project_areas; unknown, duplicate or null arguments are not accepted.");
+            return false;
+        }
+        HttpThemePolicy policy;
+        try
+        {
+            policy = context.RequestServices.GetRequiredService<HttpThemePolicy>();
+            context.RequestServices.GetRequiredService<HttpThemeModel>().ValidateConfiguration();
+        }
+        catch (InvalidOperationException)
+        {
+            await Error(context, 503, "theme_configuration_required",
+                "Theme analysis requires valid server AzureOpenAI Endpoint, DeploymentName, explicit Authentication=ManagedIdentity or ApiKey and bounded Themes policy settings. Ask the host administrator; desktop credentials are not used.");
+            return false;
+        }
+        using var lease = policy.Acquire(context.User.FindFirst("tid")!.Value,
+            Guid.Parse(context.User.FindFirst("oid")!.Value).ToString("D"));
+        if (!lease.IsAcquired)
+        {
+            var seconds = lease.TryGetMetadata(MetadataName.RetryAfter, out var retry) ? Math.Ceiling(retry.TotalSeconds) : 1;
+            context.Response.Headers.RetryAfter = Math.Max(1, seconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            await Error(context, 429, "theme_rate_limit", "Theme analysis is limited per authenticated user. Honor Retry-After and wait for any active analysis to finish.");
+            return false;
+        }
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
+        deadline.CancelAfter(policy.Deadline);
+        try
+        {
+            if (!await AcquireAsync(context, settings, acquirer, requestToken, deadline.Token))
+                return false;
+            var result = await tool.ExecuteAsync(arguments, new AgentContext
+            {
+                UserName = context.User.FindFirst("oid")!.Value,
+                DevOpsTokenProvider = requestToken.GetAsync,
+                DryRun = true
+            }, deadline.Token);
+            deadline.Token.ThrowIfCancellationRequested();
+            // Only this HTTP request can consume the preflight result; SDK dispatch never repeats paid work.
+            context.RequestServices.GetRequiredService<RequestThemeAnalysis>().Result = result;
+            return true;
+        }
+        catch (OperationCanceledException) when (!context.RequestAborted.IsCancellationRequested)
+        {
+            await Error(context, 504, "theme_analysis_timeout",
+                "Theme analysis exceeded its end-to-end deadline or a downstream timeout. No successful result is available; reduce maxResults and retry later.");
+        }
+        catch (HttpRequestException)
+        {
+            await Error(context, 502, "theme_source_unavailable",
+                "Azure DevOps could not supply authorized feedback. Verify this user's saved-query and work-item access and service availability.");
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or Newtonsoft.Json.JsonException or JsonException)
+        {
+            await Error(context, 502, "theme_analysis_failed",
+                "Theme analysis could not return valid grounded data. Verify the source, server model deployment/identity/key, quota and service availability; no partial success is returned.");
         }
         return false;
     }

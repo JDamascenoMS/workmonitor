@@ -21,6 +21,8 @@ public sealed class HttpMcpOboTests
     [Theory]
     [InlineData("EntraObo")]
     [InlineData("DevOps")]
+    [InlineData("ThemeModel")]
+    [InlineData("ModelIdentity")]
     public async Task ProductionHttpClientsNeverReplayCookiesAcrossCallersOrFollowRedirects(string name)
     {
         var requests = new ConcurrentQueue<(string Authorization, string Cookie)>();

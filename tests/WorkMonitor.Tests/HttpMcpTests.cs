@@ -23,6 +23,7 @@ using Microsoft.IdentityModel.Tokens;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using WorkMonitor.Core.Services;
+using WorkMonitor.Core.Helpers;
 using WorkMonitor.Mcp.Http;
 using HttpProgram = WorkMonitor.Mcp.Http.Program;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
@@ -45,7 +46,7 @@ public sealed class HttpMcpTests
         using var http = app.UserClient();
         await using var mcp = await Connect(http);
         var tools = await mcp.ListToolsAsync();
-        Assert.Equal(new[] { "get_work_item", "list_project_areas", "list_saved_queries" },
+        Assert.Equal(new[] { "analyze_feedback_themes", "get_work_item", "list_project_areas", "list_saved_queries" },
             tools.Select(tool => tool.Name).OrderBy(name => name));
         Assert.All(tools, tool => Assert.True(tool.ProtocolTool.Annotations?.ReadOnlyHint));
         Assert.Equal("summary", tools.Single(tool => tool.Name == "get_work_item").JsonSchema
@@ -197,7 +198,7 @@ public sealed class HttpMcpTests
     [InlineData("update_work_item")]
     [InlineData("create_bug_from_feedback")]
     [InlineData("execute_saved_query")]
-    [InlineData("analyze_feedback_themes")]
+    [InlineData("assess_bug_probability")]
     [InlineData("unknown")]
     public async Task ManualDisallowedCallsAreBlockedBeforeOboEvenWithWritesEnabledAndConfirmation(string name)
     {
@@ -214,6 +215,7 @@ public sealed class HttpMcpTests
         Assert.Equal(9, error.GetProperty("id").GetInt32());
         Assert.Empty(app.Obo.Assertions);
         Assert.Empty(app.Source.Requests);
+        Assert.Empty(app.ModelSource.Requests);
     }
 
     [Theory]
@@ -490,7 +492,7 @@ public sealed class HttpMcpTests
         using var http = app.UserClient();
         http.BaseAddress = new Uri("https://mcp.example.invalid:7443");
         await using var mcp = await Connect(http);
-        Assert.Equal(3, (await mcp.ListToolsAsync()).Count);
+        Assert.Equal(4, (await mcp.ListToolsAsync()).Count);
         AssertTicket(Read(await mcp.CallToolAsync("get_work_item", new Dictionary<string, object?> { ["id"] = 42 })), Alice);
         foreach (var rejected in new[] { "localhost", "mcp.example.invalid.attacker.invalid", "sub.mcp.example.invalid" })
         {
@@ -627,10 +629,15 @@ public sealed class HttpMcpTests
 internal sealed class HttpMcpFactory(bool realObo = false, bool productionHttpHandlers = false) : WebApplicationFactory<HttpProgram>
 {
     private readonly RSA _rsa = RSA.Create(2048);
-    private readonly string _directory = Path.Combine(AppContext.BaseDirectory, "http-mcp-tests", Guid.NewGuid().ToString("N"));
+    private readonly string _directory = Path.Combine(Path.GetTempPath(), "workmonitor-http-tests", Guid.NewGuid().ToString("N"));
+    private readonly Dictionary<string, string> _originalAreas = Constants.ProjectAreaPath;
     public FakeOboAcquirer Obo { get; } = new();
     public HttpTicketSource Source { get; } = new();
     public MsalIdentitySource IdentitySource { get; } = new();
+    public HttpThemeSource ThemeSource { get; } = new();
+    public HttpThemeModelSource ModelSource { get; } = new();
+    public bool UseThemeSource { get; set; }
+    public bool SeedCatalog { get; set; }
     public ConcurrentQueue<string> Logs { get; } = new();
     public Dictionary<string, string?> ConfigurationOverrides { get; } = new();
 
@@ -673,6 +680,13 @@ internal sealed class HttpMcpFactory(bool realObo = false, bool productionHttpHa
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        if (SeedCatalog)
+        {
+            Directory.CreateDirectory(Path.Combine(_directory, "data"));
+            File.WriteAllText(Path.Combine(_directory, "data", "parameters.json"), """{"Pilot":"Example\\Feedback"}""");
+            File.WriteAllText(Path.Combine(_directory, "data", "saved-queries.json"),
+                $$"""{"FTMonitor - FTS":"{{HttpThemeTests.QueryId}}"}""");
+        }
         builder.UseEnvironment("Testing");
         builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
             new Dictionary<string, string?>
@@ -705,7 +719,8 @@ internal sealed class HttpMcpFactory(bool realObo = false, bool productionHttpHa
             if (!productionHttpHandlers)
             {
                 services.AddHttpClient("EntraObo").ConfigurePrimaryHttpMessageHandler(() => IdentitySource);
-                services.AddHttpClient("DevOps").ConfigurePrimaryHttpMessageHandler(() => Source);
+                services.AddHttpClient("DevOps").ConfigurePrimaryHttpMessageHandler(() => UseThemeSource ? ThemeSource : Source);
+                services.AddHttpClient("ThemeModel").ConfigurePrimaryHttpMessageHandler(() => ModelSource);
             }
         });
     }
@@ -714,6 +729,7 @@ internal sealed class HttpMcpFactory(bool realObo = false, bool productionHttpHa
     {
         await base.DisposeAsync();
         _rsa.Dispose();
+        if (SeedCatalog) Constants.ProjectAreaPath = _originalAreas;
         if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
     }
 

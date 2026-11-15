@@ -13,7 +13,7 @@ The repository includes a reusable agent stack and dedicated CLI/MCP hosts:
 - `src/WorkMonitor.Cli` provides a resumable terminal conversation.
 - `src/WorkMonitor.Mcp` exposes the same tools over the official MCP stdio SDK.
 - `src/WorkMonitor.Mcp.Http` is a separate, authenticated, read-only remote MCP
-  host (see [HTTP MCP Stage 2](#http-mcp-stage-2)).
+  host (see [HTTP MCP Stages 2-3](#http-mcp-stages-2-3)).
 
 Configure the model using environment variables or the existing .NET user-secrets id:
 
@@ -291,7 +291,7 @@ Its delegated user-token behavior and the 12 read-only web-chat tools remain
 unchanged. This is the Stage 1 CLI/stdio contract; HTTP/OBO is implemented
 separately below. Copilot Studio and Teams configuration remain later work.
 
-### HTTP MCP Stage 2
+### HTTP MCP Stages 2-3
 
 `src\WorkMonitor.Mcp.Http` is a **separate ASP.NET Core process** using the
 official `ModelContextProtocol.AspNetCore` **2.2.0** Streamable HTTP transport
@@ -300,20 +300,21 @@ not serve the FT-MONITOR web/dashboard, static assets, web controllers, cookies,
 desktop credentials, or a browser login. No cross-request user tokens, ticket
 results, MCP sessions, or replayable response caches are persisted.
 
-Exactly three tools are registered and advertised:
+Exactly four tools are registered and advertised:
 
 | Tool | Remote contract |
 |---|---|
 | `get_work_item` | Positive integer `id`; optional `view` is `summary` (remote default) or `detail`. Uses the shared Stage 1 implementation, links, revision, bounds and coverage. |
+| `analyze_feedback_themes` | Configured `projectArea` OR saved-query alias/GUID `query`; optional `maxResults` defaults to 20, range 1-50. Shared grounded analysis, canonical ticket links and explicit source/window/coverage. |
 | `list_saved_queries` | Host-owned configured catalog only; does not execute queries. |
 | `list_project_areas` | Configured area keys and paths. |
 
 This allowlist is enforced both by registration and a request preflight.
 Manual calls to write tools (including dry runs), `execute_saved_query`,
-`analyze_feedback_themes`, or any other name are rejected before OBO or
-downstream work. `WorkMonitor:Mcp:AllowWrites` and `confirm` cannot enable
-remote writes. **Remote themes/model execution and catalog rollout are Stage 3**;
-no nonfunctional theme tool is advertised here. The desktop stdio host retains
+or any other name are rejected before OBO, downstream or model work.
+`WorkMonitor:Mcp:AllowWrites` and `confirm` cannot enable remote writes.
+Remote themes reuse Stage 1's service, classifier, parser and read budget;
+they never call FT-MONITOR web. The desktop stdio host retains
 its existing 16 tools and detailed lookup default.
 
 #### Authentication and confidential-client configuration
@@ -338,7 +339,7 @@ registration, or interactive sign-in; use a client with approved Entra OAuth
 support/configuration. It never accepts ID tokens or forwards the API token
 directly to DevOps. `X-WorkMonitor-DevOps-Token` overrides are rejected.
 
-For ticket lookup, the validated request's API token is the user assertion for
+For ticket lookup and theme source reads, the validated request's API token is the user assertion for
 MSAL `AcquireTokenOnBehalfOf`, using this API's confidential-client credential
 and the fixed DevOps resource scope
 `499b84ac-1321-427f-aa17-267ca6975798/.default`. MSAL adds its standard OpenID
@@ -347,7 +348,7 @@ service tokens are treated as opaque, not parsed as this API's JWT contract.
 There is no shared maker identity, client-credentials grant, managed-identity
 fallback, interactive server sign-in, or saved desktop token cache.
 Each OBO acquisition uses a fresh confidential client with a request-local
-cache. Both pooled identity-service and DevOps HTTP handlers disable cookies
+cache. Pooled identity-service, DevOps and model HTTP handlers disable cookies
 and automatic redirects, so response cookies cannot carry state across users.
 Catalog discovery needs no downstream token but still requires API
 authentication. Incoming `Mcp-Session-Id` headers are rejected; clients must
@@ -387,7 +388,7 @@ authentication, OBO or downstream work. This is explicit host configuration,
 not protection automatically supplied by MCP; see the SDK's
 [Host name validation guidance](https://csharp.sdk.modelcontextprotocol.io/v1/concepts/transports/transports.html#host-name-validation).
 
-Stage 2 is **server-to-server only**: every `Origin`-bearing request is rejected,
+This host remains **server-to-server only**: every `Origin`-bearing request is rejected,
 including same-origin, foreign, malformed, empty and literal `null` values.
 No browser-origin allowlist, CORS policy or browser integration is enabled.
 Copilot/service clients must omit `Origin`; valid no-Origin clients still
@@ -456,6 +457,145 @@ identity-service and source failures use sanitized actionable errors; no raw
 identity error body, assertion, secret or denied-ticket body is returned.
 Cancellation propagates through OBO and downstream reads.
 
+#### Stage 3 server catalogs and model configuration
+
+The HTTP process does **not** deploy or read a desktop user's catalogs.
+Operators must provision host-owned files/configuration under the configured
+`WorkMonitor:HttpMcp:DataDirectory` independently. Shared precedence is:
+
+| Catalog | Precedence |
+|---|---|
+| Saved queries | `<DataDirectory>\data\saved-queries.json` (including an empty dictionary) overrides `AzureDevOps:SavedQueries` configuration completely. Without that file, configuration provides the catalog. Aliases resolve case-insensitively; a direct GUID also works and is still authorized by user OBO. |
+| Areas | A nonempty `<DataDirectory>\data\parameters.json` dictionary overrides the built-in area mapping. Missing/empty dictionaries fall back to built-in areas; this fallback is not evidence that an area is approved or accessible to a pilot user. There is no `AzureDevOps:AreaPaths` configuration binding. |
+
+For example, provision `data\saved-queries.json` with the **actual approved**
+pilot query GUID replacing this placeholder:
+
+```json
+{ "FTMonitor - FTS": "REPLACE-WITH-APPROVED-SAVED-QUERY-GUID" }
+```
+
+Or, without that file, configure
+`AzureDevOps__SavedQueries__0__name=FTMonitor - FTS` and
+`AzureDevOps__SavedQueries__0__queryId=<approved-query-GUID>`.
+No FTS GUID is embedded in the code. A corresponding `data\parameters.json`
+example is:
+
+```json
+{ "Project": "ExampleProject\\Feedback", "Pilot": "ExampleProject\\Feedback\\Pilot" }
+```
+
+These are deployment examples, not resource/permission changes. Invalid JSON
+or inaccessible catalog files fail explicitly when the catalog is loaded;
+unknown/misconfigured aliases and area keys fail validation before OBO/model
+work. Do not copy a desktop account/cache directory into the host. Catalogs
+are loaded by the process, not automatically refreshed or edited by MCP.
+Discovery lists configured values, not proof of the caller's query access.
+
+The model uses a **separate server identity**, never the incoming API token,
+DevOps OBO token, browser identity or persisted developer login.
+`AzureOpenAI` settings in the HTTP host:
+
+| Setting | Requirement |
+|---|---|
+| `Endpoint` | Approved absolute HTTPS origin, e.g. `https://YOUR-RESOURCE.openai.azure.com/`; no path, query, user info or fragment. |
+| `DeploymentName` | Existing approved chat deployment; letters/digits, `.`, `_`, `-`, at most 128 characters. |
+| `Authentication` | Explicit `ManagedIdentity` (checked-in default) or `ApiKey`. No `DefaultAzureCredential`, developer CLI/browser credential chain or credential fallback. |
+| `ManagedIdentityClientId` | Optional user-assigned managed-identity client GUID; empty means system-assigned. Only valid with `ManagedIdentity`. |
+| `ApiKey` | Explicit approved alternative injected through the host's secret provider, only with `Authentication=ApiKey`. Never put keys in checked-in config, requests or logs. |
+
+For managed identity, the host operator must separately approve/enable that
+identity and its **Cognitive Services OpenAI User** access on the model resource.
+The host itself creates/grants nothing. Model and model-identity clients
+disable redirects, cookies and HTTP client request logging. Model calls use
+the existing production Azure OpenAI SDK serialization with **zero automatic
+model retries**. Managed-identity acquisition also disables automatic retries.
+The host binds model identity acquisition to the request deadline explicitly:
+the pinned Azure OpenAI SDK's authentication policy otherwise passes a default
+cancellation token. Only the server model identity token can reach that policy.
+Shared non-model tools, initialization and discovery do not resolve model
+credentials/settings. Missing/invalid model or Themes policy configuration
+produces an actionable **HTTP 503 `theme_configuration_required`** only when
+themes are invoked; it does not break lookup or startup.
+
+After normal authenticated MCP initialization:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "method": "tools/call",
+  "params": {
+    "name": "analyze_feedback_themes",
+    "arguments": { "query": "FTMonitor - FTS", "maxResults": 20 }
+  }
+}
+```
+
+Alternatively use `{"projectArea":"Pilot","maxResults":20}`. Omitting both
+selects the configured `Project` key. Do not send both sources, explicit
+nulls, duplicate/unknown arguments, tokens, credentials or URLs. A source
+window makes one bounded query read (`maxResults+1` lookahead) and at most one
+batch read under the requesting user's OBO; no discussion fetches. Empty,
+missing-only, excluded-only or denied sources make **no model call**. Eligible
+data makes at most one classifier call. The official SDK's stateless
+`ConfigureSessionOptions` hook runs theme preflight **after SDK HTTP transport
+validation and before SSE**. Invalid Accept, Content-Type, protocol-version or
+required MCP headers/metadata cannot consume a theme rate-window admission,
+OBO, source or model call. Missing/non-JSON Content-Type returns HTTP 415;
+the SDK remains authoritative for accepted negotiation/version forms, including
+its omitted-version fallback. SDK tool dispatch consumes only that request's
+preflight result; there is no cross-request ticket/result cache or asynchronous
+job workflow.
+
+Results retain Stage 1's `themes`, `items`, `source` and `coverage`, including
+source selection/window, observed versus unknown total, retrieved/missing/
+excluded IDs, analyzed/classified counts, unclassified IDs and payload/text/
+output omissions. Saved-query order is preserved and non-feedback items are
+excluded, not replaced. Canonical ticket links refer only to retained source
+IDs. Themes are groupings, **not confirmed duplicates**. Model/ticket text is
+untrusted data, never instructions. A truncated FTS window is not exhaustive.
+
+#### Theme limits, deadlines and errors
+
+`WorkMonitor:HttpMcp:Themes` settings are validated lazily for theme calls:
+
+| Setting | Default | Supported range |
+|---|---|---|
+| `TimeoutSeconds` | 60 | 1-120 |
+| `RequestsPerWindow` | 2 | 1-10 |
+| `WindowSeconds` | 60 | 1-300 |
+| `ConcurrentPerUser` | 1 | 1-2 |
+
+The in-process, no-queue limiter partitions by **validated tenant + normalized
+user oid**, never a request-supplied identity. An attempt admitted to expensive
+work counts toward its fixed window even if it later fails/cancels. Capacity
+leases release on success/error/cancellation; rate windows refill separately.
+Throttled requests receive **HTTP 429 `theme_rate_limit` with `Retry-After`**
+before OBO/source/model calls. Catalog tools and lookup are not subject to
+the theme limiter. Limits are per host process; approved ingress-level limits
+are still needed for a multi-instance deployment.
+
+One end-to-end deadline covers OBO, source retrieval and model completion.
+Cancellation propagates to all three; a deadline/downstream timeout returns
+**HTTP 504 `theme_analysis_timeout`**, never a successful partial result.
+The host does not silently drop slow calls or retry the model. OBO claims
+challenges still return HTTP 401 before streaming. Source permission/service
+errors return sanitized **HTTP 502 `theme_source_unavailable`**; malformed,
+ungrounded, over-limit or failed model/source results return sanitized
+**HTTP 502 `theme_analysis_failed`**, without raw errors/tokens/ticket bodies.
+Invalid source selections/arguments return JSON-RPC `-32602` before expensive
+work. Clients should not blindly retry errors or reissue completed analyses.
+
+Inbound MCP remains limited to **64 KiB**. Remote DevOps responses are bounded
+to **2 MiB** and model response envelopes to **512 KiB**, including chunked
+bodies. The shared classifier payload is at most **100,000 serialized
+characters**, with title/description/state limits 256/2,000/80. Generation is
+bounded to **8,192 output tokens**; parsed model text is limited to 100,000
+characters. Tool results fit **14,000 serialized characters**, preserving
+explicit omissions/partial coverage rather than slicing JSON. Exceeding a
+response limit fails explicitly.
+
 #### Verification versus activation gates
 
 Deterministic tests exercise actual JWT signature/issuer/audience/lifetime
@@ -467,6 +607,12 @@ paid model calls**. They do **not** prove tenant consent or production access.
 HTTP fixtures also cover rejected spoofed hosts and Origin-bearing requests
 with valid user tokens, wildcard/invalid host configuration at startup, and
 successful no-Origin calls on loopback and an explicitly configured service host.
+Stage 3 fixtures exercise actual HTTP theme calls and production model SDK
+requests with fake OBO/DevOps/model endpoints, catalog precedence, strict
+arguments, SDK transport rejection before expensive work, supported header/
+version alternatives, grounding, bounded payloads/errors, no retry, two-user
+isolation, throttling/recovery and deadlines/cancellation. These are deterministic
+behavior checks, **not measured connector latency or live model/identity access**.
 
 Before activation, the application owner/admin must separately approve and
 verify the API scope/client consent, confidential-client credential, Azure
@@ -474,9 +620,19 @@ DevOps delegated `user_impersonation` permission and downstream OBO consent,
 and tenant/Conditional Access policy. A deployed, trusted-HTTPS smoke test must
 then prove that a permitted real user can read a permitted ticket and that a
 denied user cannot. These are **remaining live activation gates**, along with
-approved hosting/network controls. Remote themes, Copilot Studio wiring and
-Teams publication remain later stages. This dedicated host does not publish
-or harden the existing dashboard.
+approved hosting/network controls. Stage 3 activation additionally requires
+the actual pilot FTS query/area catalog, user query/ticket access, approved
+model identity/key/deployment and resource/network access. Measure real
+end-to-end tool latency and verify the four-tool discovery using the intended
+Copilot Studio connection before pilot acceptance. The documented
+[five-minute model-response streaming limit](https://learn.microsoft.com/en-us/microsoft-copilot-studio/requirements-quotas)
+does **not** cover orchestration or tool/connector execution and does not
+establish compatibility with this host's deadline. Connector-specific limits
+must be checked live; [MCP troubleshooting guidance](https://learn.microsoft.com/en-us/microsoft-copilot-studio/mcp-troubleshooting)
+also notes discovery changes can take approximately 12-24 hours after custom
+connector republishing. No such setup, publication or live measurement was
+performed here. Copilot Studio wiring and Teams publication remain later
+stages. This dedicated host does not publish or harden the existing dashboard.
 
 ### Create an engineering Bug from feedback
 

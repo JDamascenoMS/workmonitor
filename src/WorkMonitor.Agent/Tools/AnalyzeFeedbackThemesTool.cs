@@ -11,7 +11,7 @@ public sealed class AnalyzeFeedbackThemesTool : IAgentTool
     public AnalyzeFeedbackThemesTool(FeedbackThemeAnalysisService analysis)
         : this(analysis, DevOpsToolHelpers.RequireClientAsync) { }
 
-    internal AnalyzeFeedbackThemesTool(FeedbackThemeAnalysisService analysis,
+    public AnalyzeFeedbackThemesTool(FeedbackThemeAnalysisService analysis,
         Func<AgentContext, CancellationToken, ValueTask<MonitorClient>> createClient)
     {
         _analysis = analysis;
@@ -42,8 +42,18 @@ public sealed class AnalyzeFeedbackThemesTool : IAgentTool
     public async Task<object> ExecuteAsync(JsonElement args, AgentContext ctx, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
+        var request = ParseRequest(args);
+        var client = await _createClient(ctx, ct);
+        var result = await _analysis.AnalyzeAsync(client, request, ct);
+        return JsonSerializer.SerializeToElement(result.FitForTool(ctx.ReadResultMaxCharacters),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+    }
+
+    public FeedbackThemeRequest ParseRequest(JsonElement args)
+    {
         if (args.ValueKind != JsonValueKind.Object ||
-            args.EnumerateObject().Any(property => property.Name is not ("projectArea" or "query" or "maxResults")))
+            args.EnumerateObject().Any(property => property.Name is not ("projectArea" or "query" or "maxResults")) ||
+            args.EnumerateObject().Select(property => property.Name).Distinct().Count() != args.EnumerateObject().Count())
             throw new ArgumentException("Expected projectArea or query and optional maxResults.");
         var area = ReadString(args, "projectArea");
         var query = ReadString(args, "query");
@@ -53,11 +63,7 @@ public sealed class AnalyzeFeedbackThemesTool : IAgentTool
             throw new ArgumentException("maxResults must be an integer between 1 and 50.");
         if (max is < 1 or > 50)
             throw new ArgumentOutOfRangeException("maxResults", "maxResults must be between 1 and 50.");
-        var request = _analysis.CreateRequest(area, query, max);
-        var client = await _createClient(ctx, ct);
-        var result = await _analysis.AnalyzeAsync(client, request, ct);
-        return JsonSerializer.SerializeToElement(result.FitForTool(ctx.ReadResultMaxCharacters),
-            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        return _analysis.CreateRequest(area, query, max);
     }
 
     private static string? ReadString(JsonElement args, string name)

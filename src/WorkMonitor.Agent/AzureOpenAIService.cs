@@ -26,6 +26,14 @@ namespace WorkMonitor.Agent
         public AzureOpenAIService(
             IConfiguration configuration,
             TokenCredential credential)
+            : this(configuration, credential, new AzureOpenAIClientOptions())
+        {
+        }
+
+        public AzureOpenAIService(
+            IConfiguration configuration,
+            TokenCredential? credential,
+            AzureOpenAIClientOptions options)
         {
             var endpoint = GetRequiredSetting(configuration, "AzureOpenAI:Endpoint");
             ModelName = GetRequiredSetting(configuration, "AzureOpenAI:DeploymentName");
@@ -36,13 +44,13 @@ namespace WorkMonitor.Agent
             {
                 azureClient = new AzureOpenAIClient(
                     new Uri(endpoint),
-                    credential ?? throw new ArgumentNullException(nameof(credential)));
+                    credential ?? throw new ArgumentNullException(nameof(credential)), options);
             }
             else
             {
                 azureClient = new AzureOpenAIClient(
                     new Uri(endpoint),
-                    new AzureKeyCredential(apiKey));
+                    new AzureKeyCredential(apiKey), options);
             }
 
             _chatClient = azureClient.GetChatClient(ModelName);
